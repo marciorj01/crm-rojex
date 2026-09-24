@@ -1,9 +1,24 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Bell, Search, User, Plus, ExternalLink } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Search, User, Plus, ExternalLink, Settings, LogOut } from 'lucide-react';
 
 export function Navbar() {
+  const router = useRouter();
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      router.push('/login');
+      router.refresh();
+    } catch (e) {
+      router.push('/login');
+    }
+  };
+
   return (
     <header className="h-16 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-6 flex items-center justify-between sticky top-0 z-30">
       {/* Search Input */}
@@ -40,23 +55,46 @@ export function Navbar() {
 
         <div className="h-6 w-px bg-slate-800 hidden sm:block"></div>
 
-        <button 
-          aria-label="Notificações"
-          className="p-2 text-slate-400 hover:text-slate-200 rounded-xl hover:bg-slate-800 transition-all relative"
-        >
-          <Bell className="w-5 h-5" />
-          <span className="w-2 h-2 rounded-full bg-sky-500 absolute top-2 right-2"></span>
-        </button>
+        {/* User Profile with Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-slate-800/80 transition"
+          >
+            <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 font-bold">
+              <User className="w-5 h-5 text-sky-400" />
+            </div>
+            <div className="hidden xl:block text-left">
+              <p className="text-xs font-semibold text-slate-200">Márcio Roger</p>
+              <p className="text-[10px] text-sky-400 font-mono">marcioroger</p>
+            </div>
+          </button>
 
-        {/* User Profile */}
-        <div className="flex items-center gap-3 pl-2">
-          <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 font-bold">
-            <User className="w-5 h-5 text-sky-400" />
-          </div>
-          <div className="hidden xl:block text-left">
-            <p className="text-xs font-semibold text-slate-200">Corretor Principal</p>
-            <p className="text-[10px] text-slate-400">admin@rojex.com.br</p>
-          </div>
+          {showUserMenu && (
+            <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-2xl p-2 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-3 py-2 border-b border-slate-800 mb-1">
+                <p className="text-xs font-bold text-white">Márcio Roger</p>
+                <p className="text-[11px] text-slate-400">marcioroger (Admin)</p>
+              </div>
+
+              <Link
+                href="/dashboard/settings"
+                onClick={() => setShowUserMenu(false)}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition"
+              >
+                <Settings className="w-4 h-4 text-sky-400" />
+                <span>Configurações & Senha</span>
+              </Link>
+
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 transition"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Sair da Conta</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

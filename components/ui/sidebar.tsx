@@ -1,27 +1,40 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { 
   Building2, 
   Users, 
   LayoutDashboard, 
   PlusCircle, 
   Rss, 
-  Home, 
   Settings,
-  Building
+  Building,
+  LogOut,
+  Trash2
 } from 'lucide-react';
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
 
   const navigation = [
     { name: 'Visão Geral', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Imóveis', href: '/dashboard/properties', icon: Building2 },
     { name: 'Novo Imóvel', href: '/dashboard/properties/new', icon: PlusCircle },
     { name: 'Leads Recebidos', href: '/dashboard/leads', icon: Users },
+    { name: 'Configurações & Lixeira', href: '/dashboard/settings', icon: Settings },
   ];
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      router.push('/login');
+      router.refresh();
+    } catch (e) {
+      router.push('/login');
+    }
+  };
 
   return (
     <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between hidden md:flex min-h-screen">
@@ -84,10 +97,20 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Footer Info */}
-      <div className="p-4 border-t border-slate-800 text-xs text-slate-400 flex items-center justify-between">
-        <span>Vercel + Supabase</span>
-        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+      {/* Footer Info & Logout */}
+      <div className="p-4 border-t border-slate-800 space-y-3">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:text-white hover:bg-rose-950/40 border border-rose-500/20 transition"
+        >
+          <LogOut className="w-4 h-4" />
+          <span>Sair da Conta</span>
+        </button>
+
+        <div className="text-[11px] text-slate-500 flex items-center justify-between px-1">
+          <span>Vercel + Supabase</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        </div>
       </div>
     </aside>
   );

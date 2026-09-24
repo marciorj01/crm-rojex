@@ -9,11 +9,9 @@ import {
   Phone, 
   Building, 
   Calendar, 
-  MessageSquare,
-  ExternalLink,
-  CheckCircle2,
-  Clock,
-  Send
+  MessageSquare, 
+  Send, 
+  Trash2 
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -44,6 +42,26 @@ export function LeadTable({ initialLeads }: LeadTableProps) {
       );
     }
     setUpdatingId(null);
+  };
+
+  // Mover Lead para a Lixeira
+  const handleDeleteLead = async (id: string, name: string) => {
+    if (!confirm(`Deseja mover o lead de "${name}" para a Lixeira?`)) return;
+
+    try {
+      const res = await fetch('/api/trash', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'soft_delete', type: 'lead', id }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao mover para a lixeira');
+
+      setLeads((prev) => prev.filter((item) => item.id !== id));
+    } catch (err: any) {
+      alert(`Erro ao mover lead para lixeira: ${err.message}`);
+    }
   };
 
   const filteredLeads = leads.filter((item) => {
@@ -149,7 +167,7 @@ export function LeadTable({ initialLeads }: LeadTableProps) {
                   <th className="py-3.5 px-4">Imóvel de Interesse</th>
                   <th className="py-3.5 px-4">Data de Entrada</th>
                   <th className="py-3.5 px-4">Status no CRM</th>
-                  <th className="py-3.5 px-4 text-right">Ação WhatsApp</th>
+                  <th className="py-3.5 px-4 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
@@ -236,21 +254,29 @@ export function LeadTable({ initialLeads }: LeadTableProps) {
                       </select>
                     </td>
 
-                    {/* Action WhatsApp */}
-                    <td className="py-4 px-4 text-right">
-                      {lead.phone ? (
-                        <a
-                          href={formatWhatsApp(lead.phone)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition shadow-md shadow-emerald-600/20"
+                    {/* Actions: WhatsApp e Lixeira */}
+                    <td className="py-4 px-4 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-2">
+                        {lead.phone && (
+                          <a
+                            href={formatWhatsApp(lead.phone)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition shadow-md shadow-emerald-600/20"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            <span>WhatsApp</span>
+                          </a>
+                        )}
+
+                        <button
+                          onClick={() => handleDeleteLead(lead.id, lead.name)}
+                          className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-rose-950/30 transition"
+                          title="Mover para Lixeira"
                         >
-                          <Send className="w-3.5 h-3.5" />
-                          <span>WhatsApp</span>
-                        </a>
-                      ) : (
-                        <span className="text-xs text-slate-500">Sem telefone</span>
-                      )}
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

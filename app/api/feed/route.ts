@@ -28,11 +28,12 @@ export async function GET() {
     const companyName = process.env.NEXT_PUBLIC_COMPANY_NAME || 'CRM ROJEX Imóveis';
     const companyEmail = process.env.NEXT_PUBLIC_COMPANY_EMAIL || 'contato@rojeximoveis.com.br';
 
-    // Buscar imóveis ativos no banco
+    // Buscar imóveis ativos que não foram para a lixeira
     const { data: properties, error } = await supabase
       .from('properties')
       .select('*')
       .eq('status', 'active')
+      .is('deleted_at', null)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -56,6 +57,16 @@ export async function GET() {
         const listingId = `ROJ-${prop.id.substring(0, 8).toUpperCase()}`;
         const formattedPrice = Number(prop.price || 0).toFixed(2);
         const formattedArea = Number(prop.area || 0).toFixed(2);
+
+        // Reunir todas as características
+        const allFeatures = [
+          ...(prop.features_comfort || []),
+          ...(prop.features_leisure || []),
+          ...(prop.features_infrastructure || []),
+          ...(prop.features_security || []),
+          ...(prop.features_location || []),
+          ...(prop.features_premium || []),
+        ];
         
         xmlContent += `    <Listing>\n`;
         xmlContent += `      <ListingID>${listingId}</ListingID>\n`;
@@ -80,6 +91,16 @@ export async function GET() {
         xmlContent += `        <Bedrooms>${prop.bedrooms || 0}</Bedrooms>\n`;
         xmlContent += `        <Bathrooms>${prop.bathrooms || 0}</Bathrooms>\n`;
         xmlContent += `        <LivingArea unit="square metres">${formattedArea}</LivingArea>\n`;
+
+        // Características no padrão VRsync
+        if (allFeatures.length > 0) {
+          xmlContent += `        <Features>\n`;
+          allFeatures.forEach((feat) => {
+            xmlContent += `          <Feature>${escapeXml(feat)}</Feature>\n`;
+          });
+          xmlContent += `        </Features>\n`;
+        }
+
         xmlContent += `      </Details>\n`;
 
         // Localização
@@ -89,6 +110,9 @@ export async function GET() {
         xmlContent += `        <City>${escapeXml(prop.city || 'São Paulo')}</City>\n`;
         xmlContent += `        <Neighborhood>${escapeXml(prop.neighborhood || 'Centro')}</Neighborhood>\n`;
         xmlContent += `        <Address>${escapeXml(prop.address || '')}</Address>\n`;
+        if (prop.cep) {
+          xmlContent += `        <PostalCode>${escapeXml(prop.cep)}</PostalCode>\n`;
+        }
         xmlContent += `      </Location>\n`;
 
         xmlContent += `    </Listing>\n`;

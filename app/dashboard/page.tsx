@@ -6,11 +6,9 @@ import {
   Rss, 
   PlusCircle, 
   TrendingUp, 
-  CheckCircle, 
-  ArrowUpRight,
-  ExternalLink,
-  ShieldCheck,
-  Zap
+  ArrowUpRight, 
+  Zap,
+  Settings
 } from 'lucide-react';
 
 export const revalidate = 0; // Server rendering sempre atualizado
@@ -18,18 +16,18 @@ export const revalidate = 0; // Server rendering sempre atualizado
 export default async function DashboardOverviewPage() {
   const supabase = createAdminClient();
 
-  // Buscar contagens e métricas do Supabase
+  // Buscar contagens e métricas ativas do Supabase (excluindo lixeira)
   const [{ count: totalProperties }, { count: activeProperties }, { count: totalLeads }, { count: newLeads }] = await Promise.all([
-    supabase.from('properties').select('*', { count: 'exact', head: true }),
-    supabase.from('properties').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-    supabase.from('leads').select('*', { count: 'exact', head: true }),
-    supabase.from('leads').select('*', { count: 'exact', head: true }).eq('status', 'new'),
+    supabase.from('properties').select('*', { count: 'exact', head: true }).is('deleted_at', null),
+    supabase.from('properties').select('*', { count: 'exact', head: true }).eq('status', 'active').is('deleted_at', null),
+    supabase.from('leads').select('*', { count: 'exact', head: true }).is('deleted_at', null),
+    supabase.from('leads').select('*', { count: 'exact', head: true }).eq('status', 'new').is('deleted_at', null),
   ]);
 
-  // Buscar os últimos 5 imóveis e últimos 5 leads
+  // Buscar os últimos 5 imóveis e últimos 5 leads não excluídos
   const [{ data: recentProperties }, { data: recentLeads }] = await Promise.all([
-    supabase.from('properties').select('*').order('created_at', { ascending: false }).limit(5),
-    supabase.from('leads').select('*, properties(title)').order('created_at', { ascending: false }).limit(5),
+    supabase.from('properties').select('*').is('deleted_at', null).order('created_at', { ascending: false }).limit(5),
+    supabase.from('leads').select('*, properties(title)').is('deleted_at', null).order('created_at', { ascending: false }).limit(5),
   ]);
 
   return (
@@ -151,7 +149,7 @@ export default async function DashboardOverviewPage() {
                     <div>
                       <h4 className="font-semibold text-slate-200 text-sm line-clamp-1">{prop.title}</h4>
                       <p className="text-xs text-slate-400">
-                        {prop.property_type} • R$ {Number(prop.price).toLocaleString('pt-BR')}
+                        {prop.property_type} • R$ {Number(prop.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                   </div>
