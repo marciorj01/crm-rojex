@@ -54,7 +54,7 @@ export async function GET() {
 
     if (properties && properties.length > 0) {
       for (const prop of properties) {
-        const listingId = `ROJ-${prop.id.substring(0, 8).toUpperCase()}`;
+        const listingId = escapeXml(prop.code || `ROJ-${prop.id.substring(0, 8).toUpperCase()}`);
         const formattedPrice = Number(prop.price || 0).toFixed(2);
         const formattedArea = Number(prop.area || 0).toFixed(2);
 

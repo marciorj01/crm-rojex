@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { Property } from '@/lib/types';
 import { 
   Upload, 
   X, 
@@ -10,15 +11,12 @@ import {
   ImagePlus, 
   CheckCircle2, 
   AlertCircle, 
-  Search, 
   ChevronDown, 
   Plus, 
-  Sparkles,
-  Check,
-  Building,
-  DollarSign,
-  MapPin,
-  Tag
+  Sparkles, 
+  MapPin, 
+  Hash,
+  ArrowLeft
 } from 'lucide-react';
 
 // Listas Pré-configuradas para o Cadastro
@@ -116,68 +114,19 @@ const DEFAULT_PREMIUM_OPTIONS = [
   'Janelas com persianas automatizadas',
 ];
 
-export function PropertyForm() {
+interface PropertyFormProps {
+  initialProperty?: Property;
+}
+
+export function PropertyForm({ initialProperty }: PropertyFormProps) {
   const router = useRouter();
   const supabase = createClient();
+  const isEditing = !!initialProperty;
 
   const [loading, setLoading] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Form State
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    property_type: 'Apartamento',
-    bedrooms: '2',
-    bathrooms: '2',
-    area: '',
-    status: 'active' as 'active' | 'inactive' | 'sold',
-    // Endereço e CEP
-    cep: '',
-    address: '',
-    neighborhood: '',
-    city: 'São Paulo',
-    state: 'SP',
-    // 5. Características Desejadas
-    property_status: 'Pronto para morar',
-    standard: 'Médio padrão',
-  });
-
-  // Preço formatado em Reais (com centavos/decimais)
-  const [rawPrice, setRawPrice] = useState<number>(0);
-  const [displayPrice, setDisplayPrice] = useState<string>('');
-
-  // Arrays de Múltipla Escolha
-  const [comfortList, setComfortList] = useState<string[]>(DEFAULT_COMFORT_OPTIONS);
-  const [selectedComfort, setSelectedComfort] = useState<string[]>([]);
-  const [customComfortInput, setCustomComfortInput] = useState('');
-
-  const [leisureList, setLeisureList] = useState<string[]>(DEFAULT_LEISURE_OPTIONS);
-  const [selectedLeisure, setSelectedLeisure] = useState<string[]>([]);
-  const [customLeisureInput, setCustomLeisureInput] = useState('');
-
-  const [infraList, setInfraList] = useState<string[]>(DEFAULT_INFRASTRUCTURE_OPTIONS);
-  const [selectedInfra, setSelectedInfra] = useState<string[]>([]);
-  const [customInfraInput, setCustomInfraInput] = useState('');
-
-  const [securityList, setSecurityList] = useState<string[]>(DEFAULT_SECURITY_OPTIONS);
-  const [selectedSecurity, setSelectedSecurity] = useState<string[]>([]);
-  const [customSecurityInput, setCustomSecurityInput] = useState('');
-
-  const [locationList, setLocationList] = useState<string[]>(DEFAULT_LOCATION_OPTIONS);
-  const [selectedLocation, setSelectedLocation] = useState<string[]>([]);
-  const [customLocationInput, setCustomLocationInput] = useState('');
-
-  const [premiumList, setPremiumList] = useState<string[]>(DEFAULT_PREMIUM_OPTIONS);
-  const [selectedPremium, setSelectedPremium] = useState<string[]>([]);
-  const [customPremiumInput, setCustomPremiumInput] = useState('');
-
-  // Dropdown open states
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-
-  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
 
   // Formatador de Moeda BRL
   const formatCurrency = (val: number): string => {
@@ -188,6 +137,63 @@ export function PropertyForm() {
       maximumFractionDigits: 2,
     }).format(val);
   };
+
+  // Form State
+  const [formData, setFormData] = useState({
+    code: initialProperty?.code || '',
+    title: initialProperty?.title || '',
+    description: initialProperty?.description || '',
+    property_type: initialProperty?.property_type || 'Apartamento',
+    bedrooms: initialProperty?.bedrooms?.toString() || '2',
+    bathrooms: initialProperty?.bathrooms?.toString() || '2',
+    area: initialProperty?.area?.toString() || '',
+    status: (initialProperty?.status || 'active') as 'active' | 'inactive' | 'sold',
+    // Endereço e CEP
+    cep: initialProperty?.cep || '',
+    address: initialProperty?.address || '',
+    neighborhood: initialProperty?.neighborhood || '',
+    city: initialProperty?.city || 'São Paulo',
+    state: initialProperty?.state || 'SP',
+    // 5. Características Desejadas
+    property_status: initialProperty?.property_status || 'Pronto para morar',
+    standard: initialProperty?.standard || 'Médio padrão',
+  });
+
+  // Preço formatado em Reais (com centavos/decimais)
+  const [rawPrice, setRawPrice] = useState<number>(initialProperty?.price || 0);
+  const [displayPrice, setDisplayPrice] = useState<string>(
+    initialProperty?.price ? formatCurrency(initialProperty.price) : ''
+  );
+
+  // Arrays de Múltipla Escolha
+  const [comfortList, setComfortList] = useState<string[]>(DEFAULT_COMFORT_OPTIONS);
+  const [selectedComfort, setSelectedComfort] = useState<string[]>(initialProperty?.features_comfort || []);
+  const [customComfortInput, setCustomComfortInput] = useState('');
+
+  const [leisureList, setLeisureList] = useState<string[]>(DEFAULT_LEISURE_OPTIONS);
+  const [selectedLeisure, setSelectedLeisure] = useState<string[]>(initialProperty?.features_leisure || []);
+  const [customLeisureInput, setCustomLeisureInput] = useState('');
+
+  const [infraList, setInfraList] = useState<string[]>(DEFAULT_INFRASTRUCTURE_OPTIONS);
+  const [selectedInfra, setSelectedInfra] = useState<string[]>(initialProperty?.features_infrastructure || []);
+  const [customInfraInput, setCustomInfraInput] = useState('');
+
+  const [securityList, setSecurityList] = useState<string[]>(DEFAULT_SECURITY_OPTIONS);
+  const [selectedSecurity, setSelectedSecurity] = useState<string[]>(initialProperty?.features_security || []);
+  const [customSecurityInput, setCustomSecurityInput] = useState('');
+
+  const [locationList, setLocationList] = useState<string[]>(DEFAULT_LOCATION_OPTIONS);
+  const [selectedLocation, setSelectedLocation] = useState<string[]>(initialProperty?.features_location || []);
+  const [customLocationInput, setCustomLocationInput] = useState('');
+
+  const [premiumList, setPremiumList] = useState<string[]>(DEFAULT_PREMIUM_OPTIONS);
+  const [selectedPremium, setSelectedPremium] = useState<string[]>(initialProperty?.features_premium || []);
+  const [customPremiumInput, setCustomPremiumInput] = useState('');
+
+  // Dropdown open states
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+
+  const [uploadedImages, setUploadedImages] = useState<string[]>(initialProperty?.images || []);
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawVal = e.target.value.replace(/\D/g, '');
@@ -207,7 +213,6 @@ export function PropertyForm() {
     let val = e.target.value.replace(/\D/g, '');
     if (val.length > 8) val = val.slice(0, 8);
 
-    // Formatar máscara 00000-000
     const formattedCep = val.length > 5 ? `${val.slice(0, 5)}-${val.slice(5)}` : val;
     setFormData((prev) => ({ ...prev, cep: formattedCep }));
 
@@ -305,12 +310,12 @@ export function PropertyForm() {
       }
 
       setUploadedImages((prev) => [...prev, ...newImageUrls]);
-      setMessage({ type: 'success', text: `${newImageUrls.length} imagem(ns) carregada(s) com sucesso!` });
+      setMessage({ type: 'success', text: `${newImageUrls.length} imagem(ns) adicionada(s) com sucesso!` });
     } catch (err: any) {
       console.error('Erro no upload de imagens:', err);
       setMessage({ 
         type: 'error', 
-        text: 'Erro ao enviar imagens. Verifique se o Bucket "property_images" está criado no Supabase.' 
+        text: 'Erro ao enviar imagens. Verifique a conexão com o Supabase Storage.' 
       });
     } finally {
       setUploadingImages(false);
@@ -322,7 +327,7 @@ export function PropertyForm() {
     setUploadedImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
-  // Submissão do Formulário
+  // Submissão do Formulário (Criar ou Atualizar)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -334,42 +339,65 @@ export function PropertyForm() {
     setLoading(true);
     setMessage(null);
 
-    try {
-      const { data, error } = await supabase
-        .from('properties')
-        .insert({
-          title: formData.title,
-          description: formData.description,
-          property_type: formData.property_type,
-          price: rawPrice,
-          bedrooms: parseInt(formData.bedrooms) || 0,
-          bathrooms: parseInt(formData.bathrooms) || 0,
-          area: parseFloat(formData.area) || 0,
-          status: formData.status,
-          cep: formData.cep,
-          city: formData.city,
-          neighborhood: formData.neighborhood,
-          address: formData.address,
-          state: formData.state,
-          images: uploadedImages,
-          property_status: formData.property_status,
-          standard: formData.standard,
-          features_comfort: selectedComfort,
-          features_leisure: selectedLeisure,
-          features_infrastructure: selectedInfra,
-          features_security: selectedSecurity,
-          features_location: selectedLocation,
-          features_premium: selectedPremium,
-        })
-        .select()
-        .single();
+    // Gerar código de referência amigável caso não tenha sido preenchido
+    let finalCode = formData.code.trim().toUpperCase();
+    if (!finalCode) {
+      if (initialProperty?.code) {
+        finalCode = initialProperty.code;
+      } else {
+        const randNum = Math.floor(1000 + Math.random() * 9000);
+        finalCode = `ROJ-${randNum}`;
+      }
+    }
 
-      if (error) {
-        throw error;
+    const payload = {
+      code: finalCode,
+      title: formData.title,
+      description: formData.description,
+      property_type: formData.property_type,
+      price: rawPrice,
+      bedrooms: parseInt(formData.bedrooms) || 0,
+      bathrooms: parseInt(formData.bathrooms) || 0,
+      area: parseFloat(formData.area) || 0,
+      status: formData.status,
+      cep: formData.cep,
+      city: formData.city,
+      neighborhood: formData.neighborhood,
+      address: formData.address,
+      state: formData.state,
+      images: uploadedImages,
+      property_status: formData.property_status,
+      standard: formData.standard,
+      features_comfort: selectedComfort,
+      features_leisure: selectedLeisure,
+      features_infrastructure: selectedInfra,
+      features_security: selectedSecurity,
+      features_location: selectedLocation,
+      features_premium: selectedPremium,
+    };
+
+    try {
+      if (isEditing && initialProperty) {
+        // Modo Edição: UPDATE
+        const { error } = await supabase
+          .from('properties')
+          .update(payload)
+          .eq('id', initialProperty.id);
+
+        if (error) throw error;
+
+        setMessage({ type: 'success', text: 'Imóvel atualizado com sucesso! Redirecionando...' });
+      } else {
+        // Modo Criação: INSERT
+        const { error } = await supabase
+          .from('properties')
+          .insert(payload);
+
+        if (error) throw error;
+
+        setMessage({ type: 'success', text: `Imóvel cadastrado com sucesso com o código ${finalCode}! Redirecionando...` });
       }
 
-      setMessage({ type: 'success', text: 'Imóvel cadastrado com sucesso! Redirecionando...' });
-      
       setTimeout(() => {
         router.push('/dashboard/properties');
         router.refresh();
@@ -377,7 +405,7 @@ export function PropertyForm() {
 
     } catch (err: any) {
       console.error('Erro ao salvar imóvel:', err);
-      setMessage({ type: 'error', text: `Erro ao salvar imóvel: ${err.message || 'Tente novamente.'}` });
+      setMessage({ type: 'error', text: `Erro ao salvar: ${err.message || 'Tente novamente.'}` });
     } finally {
       setLoading(false);
     }
@@ -385,6 +413,22 @@ export function PropertyForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-4xl mx-auto pb-12">
+      {/* Top Breadcrumb */}
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition"
+        >
+          <ArrowLeft className="w-4 h-4" /> Voltar para a Carteira
+        </button>
+        {isEditing && (
+          <span className="text-xs font-mono bg-sky-500/10 text-sky-400 border border-sky-500/20 px-3 py-1 rounded-full">
+            Editando Imóvel: {initialProperty?.code || `ROJ-${initialProperty?.id.substring(0, 6).toUpperCase()}`}
+          </span>
+        )}
+      </div>
+
       {/* Alert Messages */}
       {message && (
         <div
@@ -410,7 +454,26 @@ export function PropertyForm() {
           1. Informações Básicas do Imóvel
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* CÓDIGO / REFERÊNCIA DO IMÓVEL */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-2 flex items-center gap-1.5">
+              <Hash className="w-3.5 h-3.5 text-sky-400" />
+              Código / Ref do Imóvel
+            </label>
+            <input
+              type="text"
+              name="code"
+              value={formData.code}
+              onChange={handleChange}
+              placeholder="Ex: ROJ-101, AP-204 (Auto se vazio)"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 uppercase font-mono transition"
+            />
+            <span className="text-[10px] text-slate-400 mt-1 block">
+              Se deixar vazio, geramos um código curto automático.
+            </span>
+          </div>
+
           <div className="md:col-span-2">
             <label className="block text-xs font-semibold text-slate-300 mb-2">
               Título do Imóvel <span className="text-rose-400">*</span>
@@ -528,7 +591,7 @@ export function PropertyForm() {
             />
           </div>
 
-          <div className="md:col-span-2">
+          <div className="md:col-span-3">
             <label className="block text-xs font-semibold text-slate-300 mb-2">Descrição Completa</label>
             <textarea
               name="description"
@@ -700,7 +763,6 @@ export function PropertyForm() {
 
               {openDropdown === 'comfort' && (
                 <div className="mt-2 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150 z-20">
-                  {/* Input para adicionar característica manual */}
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -724,7 +786,6 @@ export function PropertyForm() {
                     </button>
                   </div>
 
-                  {/* Lista com Checkboxes e Scroll */}
                   <div className="max-h-56 overflow-y-auto space-y-1 pr-1 divide-y divide-slate-800/40">
                     {comfortList.map((item) => {
                       const isChecked = selectedComfort.includes(item);
@@ -748,7 +809,6 @@ export function PropertyForm() {
               )}
             </div>
 
-            {/* Badges selecionados */}
             {selectedComfort.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {selectedComfort.map((tag) => (
@@ -1197,12 +1257,12 @@ export function PropertyForm() {
         </div>
       </div>
 
-      {/* Card 4: Upload de Múltiplas Fotografias para Supabase Storage */}
+      {/* Card 4: Fotografias do Imóvel */}
       <div className="glass-panel p-6 space-y-6">
         <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-sky-500"></span>
-            4. Fotografias do Imóvel (Bucket Supabase)
+            4. Fotografias do Imóvel ({uploadedImages.length})
           </h2>
           <span className="text-xs text-slate-400">Bucket: <code className="bg-slate-800 px-2 py-0.5 rounded text-sky-400">property_images</code></span>
         </div>
@@ -1259,7 +1319,7 @@ export function PropertyForm() {
                   <button
                     type="button"
                     onClick={() => handleRemoveImage(idx)}
-                    className="absolute top-2 right-2 bg-rose-600/90 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition hover:bg-rose-500"
+                    className="absolute top-2 right-2 bg-rose-600/90 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition hover:bg-rose-500 shadow-md"
                     title="Remover Imagem"
                   >
                     <X className="w-4 h-4" />
@@ -1292,10 +1352,10 @@ export function PropertyForm() {
           {loading ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Salvando Imóvel...</span>
+              <span>{isEditing ? 'Atualizando Imóvel...' : 'Salvando Imóvel...'}</span>
             </>
           ) : (
-            <span>Salvar e Publicar Imóvel</span>
+            <span>{isEditing ? 'Salvar Alterações do Imóvel' : 'Salvar e Publicar Imóvel'}</span>
           )}
         </button>
       </div>

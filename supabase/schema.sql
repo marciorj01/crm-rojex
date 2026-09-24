@@ -29,6 +29,7 @@ ON CONFLICT (username) DO NOTHING;
 -- =========================================================
 CREATE TABLE IF NOT EXISTS public.properties (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(50) DEFAULT '', -- Código do Imóvel (Ex: ROJ-101, AP-204)
     title VARCHAR(255) NOT NULL,
     description TEXT,
     property_type VARCHAR(100) NOT NULL DEFAULT 'Apartamento',
@@ -65,6 +66,7 @@ CREATE TABLE IF NOT EXISTS public.properties (
 );
 
 -- Garantir que as novas colunas existam mesmo se a tabela já foi criada anteriormente
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS code VARCHAR(50) DEFAULT '';
 ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS cep VARCHAR(10) DEFAULT '';
 ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS property_status VARCHAR(100) DEFAULT 'Pronto para morar';
 ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS standard VARCHAR(100) DEFAULT 'Médio padrão';

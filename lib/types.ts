@@ -1,5 +1,6 @@
 export interface Property {
   id: string;
+  code?: string; // Código de Referência / ID amigável (Ex: ROJ-101, AP-204)
   title: string;
   description: string;
   property_type: string;
@@ -41,10 +42,12 @@ export interface Lead {
   created_at: string;
   properties?: {
     title: string;
+    code?: string;
   } | null;
 }
 
 export interface PropertyFormData {
+  code?: string;
   title: string;
   description: string;
   property_type: string;

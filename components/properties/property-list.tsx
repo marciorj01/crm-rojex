@@ -17,8 +17,8 @@ import {
   CheckCircle, 
   Clock, 
   ExternalLink,
-  Tag,
-  Sparkles
+  Edit3,
+  Hash
 } from 'lucide-react';
 
 interface PropertyListProps {
@@ -33,7 +33,10 @@ export function PropertyList({ initialProperties }: PropertyListProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Mover para a Lixeira (Soft Delete)
-  const handleDelete = async (id: string, title: string) => {
+  const handleDelete = async (e: React.MouseEvent, id: string, title: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+
     if (!confirm(`Deseja enviar o imóvel "${title}" para a Lixeira? Você poderá restaurá-lo nas Configurações.`)) return;
 
     setDeletingId(id);
@@ -56,8 +59,10 @@ export function PropertyList({ initialProperties }: PropertyListProps) {
   };
 
   const filteredProperties = properties.filter((item) => {
+    const propCode = item.code || `ROJ-${item.id.substring(0, 6).toUpperCase()}`;
     const matchesSearch =
       item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      propCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (item.neighborhood && item.neighborhood.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (item.city && item.city.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (item.cep && item.cep.includes(searchTerm));
@@ -84,7 +89,7 @@ export function PropertyList({ initialProperties }: PropertyListProps) {
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Carteira de Imóveis</h1>
           <p className="text-sm text-slate-400">
-            Gerencie seus imóveis sincronizados com o portal Loft e parceiros
+            Clique em qualquer imóvel para editar textos, fotos, preços e características
           </p>
         </div>
 
@@ -117,7 +122,7 @@ export function PropertyList({ initialProperties }: PropertyListProps) {
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Buscar por título, bairro, cidade ou CEP..."
+            placeholder="Buscar por código, título, bairro ou CEP..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-500 transition"
@@ -175,119 +180,141 @@ export function PropertyList({ initialProperties }: PropertyListProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredProperties.map((prop) => (
-            <div key={prop.id} className="glass-card overflow-hidden flex flex-col justify-between group">
-              <div>
-                {/* Image Banner */}
-                <div className="relative aspect-video bg-slate-950 overflow-hidden">
-                  {prop.images && prop.images.length > 0 ? (
-                    <img
-                      src={prop.images[0]}
-                      alt={prop.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 gap-2">
-                      <ImageIcon className="w-10 h-10" />
-                      <span className="text-xs">Sem fotografias</span>
-                    </div>
-                  )}
+          {filteredProperties.map((prop) => {
+            const displayCode = prop.code || `ROJ-${prop.id.substring(0, 6).toUpperCase()}`;
 
-                  {/* Status Badge */}
-                  <div className="absolute top-3 left-3">
-                    {prop.status === 'active' && (
-                      <span className="inline-flex items-center gap-1 bg-emerald-500/90 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg">
-                        <CheckCircle className="w-3 h-3" /> ATIVO (NO FEED)
-                      </span>
+            return (
+              <div 
+                key={prop.id} 
+                className="glass-card overflow-hidden flex flex-col justify-between group hover:border-sky-500/40 transition duration-200"
+              >
+                <Link href={`/dashboard/properties/${prop.id}`} className="block">
+                  {/* Image Banner */}
+                  <div className="relative aspect-video bg-slate-950 overflow-hidden cursor-pointer">
+                    {prop.images && prop.images.length > 0 ? (
+                      <img
+                        src={prop.images[0]}
+                        alt={prop.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 gap-2">
+                        <ImageIcon className="w-10 h-10" />
+                        <span className="text-xs">Sem fotografias</span>
+                      </div>
                     )}
-                    {prop.status === 'inactive' && (
-                      <span className="inline-flex items-center gap-1 bg-amber-500/90 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg">
-                        <Clock className="w-3 h-3" /> INATIVO
-                      </span>
-                    )}
-                    {prop.status === 'sold' && (
-                      <span className="inline-flex items-center gap-1 bg-slate-700/90 text-slate-300 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg">
-                        VENDIDO
-                      </span>
-                    )}
-                  </div>
 
-                  {/* Image Count */}
-                  {prop.images && prop.images.length > 0 && (
-                    <div className="absolute bottom-3 right-3 bg-slate-950/80 backdrop-blur-md text-slate-300 text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-slate-800 flex items-center gap-1.5">
-                      <ImageIcon className="w-3.5 h-3.5 text-sky-400" />
-                      <span>{prop.images.length} fotos</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Card Content */}
-                <div className="p-5 space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between gap-2 text-xs text-slate-400 mb-1">
-                      <span className="font-semibold text-sky-400 uppercase tracking-wide">
-                        {prop.property_type}
-                      </span>
-                      {prop.property_status && (
-                        <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-md font-medium">
-                          {prop.property_status}
+                    {/* Status Badge */}
+                    <div className="absolute top-3 left-3">
+                      {prop.status === 'active' && (
+                        <span className="inline-flex items-center gap-1 bg-emerald-500/90 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg">
+                          <CheckCircle className="w-3 h-3" /> ATIVO (NO FEED)
+                        </span>
+                      )}
+                      {prop.status === 'inactive' && (
+                        <span className="inline-flex items-center gap-1 bg-amber-500/90 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg">
+                          <Clock className="w-3 h-3" /> INATIVO
+                        </span>
+                      )}
+                      {prop.status === 'sold' && (
+                        <span className="inline-flex items-center gap-1 bg-slate-700/90 text-slate-300 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg">
+                          VENDIDO
                         </span>
                       )}
                     </div>
 
-                    <h3 className="font-bold text-slate-100 text-base line-clamp-1 group-hover:text-sky-300 transition">
-                      {prop.title}
-                    </h3>
+                    {/* Image Count & Edit Hint */}
+                    <div className="absolute bottom-3 right-3 flex items-center gap-2">
+                      <span className="bg-sky-600/90 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md opacity-0 group-hover:opacity-100 transition">
+                        <Edit3 className="w-3 h-3" /> Editar
+                      </span>
+                      {prop.images && prop.images.length > 0 && (
+                        <div className="bg-slate-950/80 backdrop-blur-md text-slate-300 text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-slate-800 flex items-center gap-1.5">
+                          <ImageIcon className="w-3.5 h-3.5 text-sky-400" />
+                          <span>{prop.images.length} fotos</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-                    {(prop.neighborhood || prop.city || prop.cep) && (
-                      <p className="text-xs text-slate-400 flex items-center gap-1 mt-1">
-                        <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                        <span className="truncate">
-                          {[prop.neighborhood, prop.city, prop.state].filter(Boolean).join(', ')}
-                          {prop.cep ? ` (${prop.cep})` : ''}
+                  {/* Card Content */}
+                  <div className="p-5 space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between gap-2 text-xs text-slate-400 mb-1">
+                        <span className="font-semibold text-sky-400 uppercase tracking-wide">
+                          {prop.property_type}
                         </span>
-                      </p>
-                    )}
+                        <span className="font-mono bg-slate-950 border border-slate-800 px-2 py-0.5 rounded text-[11px] text-sky-300 font-bold flex items-center gap-1">
+                          <Hash className="w-3 h-3 text-slate-500" />
+                          {displayCode}
+                        </span>
+                      </div>
+
+                      <h3 className="font-bold text-slate-100 text-base line-clamp-1 group-hover:text-sky-300 transition">
+                        {prop.title}
+                      </h3>
+
+                      {(prop.neighborhood || prop.city || prop.cep) && (
+                        <p className="text-xs text-slate-400 flex items-center gap-1 mt-1">
+                          <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          <span className="truncate">
+                            {[prop.neighborhood, prop.city, prop.state].filter(Boolean).join(', ')}
+                            {prop.cep ? ` (${prop.cep})` : ''}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Characteristics */}
+                    <div className="grid grid-cols-3 gap-2 py-2 border-y border-slate-800/80 text-xs text-slate-300">
+                      <div className="flex items-center gap-1.5">
+                        <Bed className="w-4 h-4 text-sky-400" />
+                        <span>{prop.bedrooms} Quarto(s)</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Bath className="w-4 h-4 text-sky-400" />
+                        <span>{prop.bathrooms} WCs</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Maximize2 className="w-4 h-4 text-sky-400" />
+                        <span>{prop.area} m²</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+
+                {/* Price and Actions */}
+                <div className="p-5 pt-0 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Preço de Venda</span>
+                    <span className="text-lg font-extrabold text-white">
+                      {formatPrice(prop.price)}
+                    </span>
                   </div>
 
-                  {/* Characteristics */}
-                  <div className="grid grid-cols-3 gap-2 py-2 border-y border-slate-800/80 text-xs text-slate-300">
-                    <div className="flex items-center gap-1.5">
-                      <Bed className="w-4 h-4 text-sky-400" />
-                      <span>{prop.bedrooms} Quarto(s)</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Bath className="w-4 h-4 text-sky-400" />
-                      <span>{prop.bathrooms} WCs</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Maximize2 className="w-4 h-4 text-sky-400" />
-                      <span>{prop.area} m²</span>
-                    </div>
+                  <div className="flex items-center gap-1.5">
+                    <Link
+                      href={`/dashboard/properties/${prop.id}`}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-sky-600/10 hover:bg-sky-600 text-sky-400 hover:text-white border border-sky-500/20 text-xs font-semibold transition"
+                      title="Editar Imóvel"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Editar</span>
+                    </Link>
+
+                    <button
+                      onClick={(e) => handleDelete(e, prop.id, prop.title)}
+                      disabled={deletingId === prop.id}
+                      className="p-2 text-slate-500 hover:text-rose-400 rounded-xl hover:bg-rose-950/30 transition disabled:opacity-50"
+                      title="Mover para a Lixeira"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               </div>
-
-              {/* Price and Actions */}
-              <div className="p-5 pt-0 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Preço de Venda</span>
-                  <span className="text-lg font-extrabold text-white">
-                    {formatPrice(prop.price)}
-                  </span>
-                </div>
-
-                <button
-                  onClick={() => handleDelete(prop.id, prop.title)}
-                  disabled={deletingId === prop.id}
-                  className="p-2 text-slate-500 hover:text-rose-400 rounded-xl hover:bg-rose-950/30 transition disabled:opacity-50"
-                  title="Mover para a Lixeira"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
