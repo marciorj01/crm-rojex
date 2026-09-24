@@ -27,6 +27,7 @@ export default function SettingsPage() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [savingUser, setSavingUser] = useState(false);
   const [userMsg, setUserMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -57,6 +58,7 @@ export default function SettingsPage() {
     setUsername('marcioroger');
     setFullName('Márcio Roger');
     setEmail('contato@rojeximoveis.com.br');
+    setPhone('+5541999999999');
 
     fetchTrash();
   }, []);
@@ -76,6 +78,7 @@ export default function SettingsPage() {
           newPassword: password,
           fullName,
           email,
+          phone,
         }),
       });
 
@@ -247,7 +250,7 @@ export default function SettingsPage() {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-2">
-                    E-mail de Contato
+                    E-mail de Contato (Feed & Portais)
                   </label>
                   <input
                     type="email"
@@ -256,6 +259,22 @@ export default function SettingsPage() {
                     placeholder="contato@rojeximoveis.com.br"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 transition"
                   />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-300 mb-2">
+                    Telefone / WhatsApp da Imobiliária (com +55 e DDD) <span className="text-amber-400">* Exigido pela Loft</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+5541999999999"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 transition"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Formato aceito pela Loft: +55 seguido do DDD e número (Ex: +5541999999999)
+                  </span>
                 </div>
               </div>
 

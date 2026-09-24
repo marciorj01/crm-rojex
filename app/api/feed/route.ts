@@ -21,12 +21,61 @@ function getPublicImageUrl(supabaseUrl: string, imagePath: string): string {
   return `${supabaseUrl}/storage/v1/object/public/property_images/${cleanPath}`;
 }
 
+function formatE164Phone(rawPhone: string): string {
+  if (!rawPhone) return '+5541999999999';
+  const digits = rawPhone.replace(/\D/g, '');
+  if (digits.startsWith('55') && digits.length >= 12) {
+    return `+${digits}`;
+  }
+  if (digits.length >= 10 && digits.length <= 11) {
+    return `+55${digits}`;
+  }
+  return digits ? `+${digits}` : '+5541999999999';
+}
+
+function mapPropertyType(type: string): string {
+  switch (type) {
+    case 'Apartamento': return 'Residential / Apartment';
+    case 'Casa': 
+    case 'Casa / Sobrado': return 'Residential / Home';
+    case 'Casa em Condomínio': return 'Residential / Condo';
+    case 'Cobertura': return 'Residential / Penthouse';
+    case 'Terreno':
+    case 'Terreno / Lote': return 'Residential / Land Lot';
+    case 'Comercial':
+    case 'Sala Comercial / Galpão': return 'Commercial / Office';
+    case 'Studio / Flat': return 'Residential / Flat';
+    case 'Chácara / Sítio': return 'Residential / Farm Ranch';
+    default: return 'Residential / Home';
+  }
+}
+
+function parseAddressParts(rawAddress: string): { street: string; number: string } {
+  if (!rawAddress) return { street: 'Não informado', number: 'S/N' };
+  const match = rawAddress.match(/^(.*?)(?:,\s*|\s+)(\d+|S\/N|s\/n)$/i);
+  if (match) {
+    return { street: match[1].trim(), number: match[2].trim() };
+  }
+  return { street: rawAddress.trim(), number: 'S/N' };
+}
+
 export async function GET() {
   try {
     const supabase = createAdminClient();
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://seu-projeto.supabase.co';
-    const companyName = process.env.NEXT_PUBLIC_COMPANY_NAME || 'CRM ROJEX Imóveis';
-    const companyEmail = process.env.NEXT_PUBLIC_COMPANY_EMAIL || 'contato@rojeximoveis.com.br';
+
+    // Buscar dados de contato do corretor/imobiliária da tabela app_users
+    const { data: adminUser } = await supabase
+      .from('app_users')
+      .select('*')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    const companyName = adminUser?.full_name || process.env.NEXT_PUBLIC_COMPANY_NAME || 'CRM ROJEX Imóveis';
+    const companyEmail = adminUser?.email || process.env.NEXT_PUBLIC_COMPANY_EMAIL || 'contato@rojeximoveis.com.br';
+    const rawPhone = adminUser?.phone || process.env.COMPANY_PHONE || process.env.NEXT_PUBLIC_COMPANY_PHONE || '+5541999999999';
+    const formattedPhone = formatE164Phone(rawPhone);
 
     // Buscar imóveis ativos que não foram para a lixeira
     const { data: properties, error } = await supabase
@@ -41,13 +90,18 @@ export async function GET() {
       return new NextResponse('Erro interno ao buscar imóveis.', { status: 500 });
     }
 
-    // Construção do XML no padrão VRsync (Loft, VivaReal, ZAP, OLX)
+    const currentDateIso = new Date().toISOString().replace(/\.\d{3}Z$/, '');
+
+    // Construção do XML no padrão oficial VRsync / Loft / VivaReal / Zap
     let xmlContent = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     xmlContent += `<ListingDataFeed xmlns="http://www.vrsync.com.br/schema/1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.vrsync.com.br/schema/1.0 http://www.vrsync.com.br/schema/1.0/vrsync.xsd">\n`;
     
     xmlContent += `  <Header>\n`;
     xmlContent += `    <Provider>${escapeXml(companyName)}</Provider>\n`;
     xmlContent += `    <Email>${escapeXml(companyEmail)}</Email>\n`;
+    xmlContent += `    <ContactName>${escapeXml(companyName)}</ContactName>\n`;
+    xmlContent += `    <Telephone>${escapeXml(formattedPhone)}</Telephone>\n`;
+    xmlContent += `    <PublishDate>${currentDateIso}</PublishDate>\n`;
     xmlContent += `  </Header>\n`;
     
     xmlContent += `  <Listings>\n`;
@@ -58,6 +112,11 @@ export async function GET() {
         const formattedPrice = Number(prop.price || 0).toFixed(2);
         const formattedArea = Number(prop.area || 0).toFixed(2);
         const formattedBuiltArea = prop.built_area ? Number(prop.built_area).toFixed(2) : null;
+        const mappedType = mapPropertyType(prop.property_type || 'Apartamento');
+
+        const { street, number: streetNumber } = parseAddressParts(prop.address || '');
+        const cleanCep = (prop.cep || '').replace(/\D/g, '');
+        const formattedCep = cleanCep.length === 8 ? `${cleanCep.slice(0, 5)}-${cleanCep.slice(5)}` : (prop.cep || '00000-000');
 
         // Reunir todas as características
         const allFeatures = [
@@ -73,6 +132,14 @@ export async function GET() {
         xmlContent += `      <ListingID>${listingId}</ListingID>\n`;
         xmlContent += `      <Title><![CDATA[${prop.title || 'Imóvel'}]]></Title>\n`;
         xmlContent += `      <TransactionType>For Sale</TransactionType>\n`;
+
+        // DADOS DE CONTATO DO ANÚNCIO (Exigência do Portal Loft)
+        xmlContent += `      <ContactInfo>\n`;
+        xmlContent += `        <Name>${escapeXml(companyName)}</Name>\n`;
+        xmlContent += `        <Email>${escapeXml(companyEmail)}</Email>\n`;
+        xmlContent += `        <Telephone>${escapeXml(formattedPhone)}</Telephone>\n`;
+        xmlContent += `        <Website>https://rojeximoveis.com.br</Website>\n`;
+        xmlContent += `      </ContactInfo>\n`;
         
         // Mídias / Fotografias
         xmlContent += `      <Media>\n`;
@@ -86,13 +153,15 @@ export async function GET() {
 
         // Detalhes do Imóvel
         xmlContent += `      <Details>\n`;
-        xmlContent += `        <PropertyType>${escapeXml(prop.property_type || 'Residential / Apartment')}</PropertyType>\n`;
-        xmlContent += `        <Description><![CDATA[${prop.description || ''}]]></Description>\n`;
+        xmlContent += `        <PropertyType>${escapeXml(mappedType)}</PropertyType>\n`;
+        xmlContent += `        <Description><![CDATA[${prop.description || prop.title || ''}]]></Description>\n`;
         xmlContent += `        <ListPrice>${formattedPrice}</ListPrice>\n`;
         xmlContent += `        <Bedrooms>${prop.bedrooms || 0}</Bedrooms>\n`;
         xmlContent += `        <Bathrooms>${prop.bathrooms || 0}</Bathrooms>\n`;
         if (formattedBuiltArea) {
           xmlContent += `        <LivingArea unit="square metres">${formattedBuiltArea}</LivingArea>\n`;
+        } else {
+          xmlContent += `        <LivingArea unit="square metres">${formattedArea}</LivingArea>\n`;
         }
         xmlContent += `        <LotArea unit="square metres">${formattedArea}</LotArea>\n`;
 
@@ -107,15 +176,16 @@ export async function GET() {
 
         xmlContent += `      </Details>\n`;
 
-        // Localização
-        xmlContent += `      <Location displayAddress="Neighborhood">\n`;
+        // Localização Completa no padrão VRsync
+        xmlContent += `      <Location displayAddress="All">\n`;
         xmlContent += `        <Country abbreviation="BR">Brasil</Country>\n`;
-        xmlContent += `        <State abbreviation="${escapeXml(prop.state || 'SP')}">${escapeXml(prop.state || 'SP')}</State>\n`;
+        xmlContent += `        <State abbreviation="${escapeXml(prop.state || 'PR')}">${escapeXml(prop.state || 'PR')}</State>\n`;
         xmlContent += `        <City>${escapeXml(prop.city || 'São Paulo')}</City>\n`;
         xmlContent += `        <Neighborhood>${escapeXml(prop.neighborhood || 'Centro')}</Neighborhood>\n`;
-        xmlContent += `        <Address>${escapeXml(prop.address || '')}</Address>\n`;
-        if (prop.cep) {
-          xmlContent += `        <PostalCode>${escapeXml(prop.cep)}</PostalCode>\n`;
+        xmlContent += `        <Address>${escapeXml(street)}</Address>\n`;
+        xmlContent += `        <StreetNumber>${escapeXml(streetNumber)}</StreetNumber>\n`;
+        if (formattedCep) {
+          xmlContent += `        <PostalCode>${escapeXml(formattedCep)}</PostalCode>\n`;
         }
         xmlContent += `      </Location>\n`;
 
@@ -130,7 +200,7 @@ export async function GET() {
       status: 200,
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
-        'Cache-Control': 's-maxage=3600, stale-while-revalidate=1800',
+        'Cache-Control': 's-maxage=600, stale-while-revalidate=300',
       },
     });
   } catch (err) {

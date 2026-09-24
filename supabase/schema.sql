@@ -14,14 +14,17 @@ CREATE TABLE IF NOT EXISTS public.app_users (
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(150) DEFAULT 'Márcio Roger',
     email VARCHAR(255) DEFAULT 'admin@rojex.com.br',
+    phone VARCHAR(50) DEFAULT '+5541999999999',
     role VARCHAR(50) DEFAULT 'admin',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+ALTER TABLE public.app_users ADD COLUMN IF NOT EXISTS phone VARCHAR(50) DEFAULT '+5541999999999';
+
 -- Inserir usuário padrão se não existir (Usuário: marcioroger / Senha: admin123456)
-INSERT INTO public.app_users (username, password_hash, full_name, email, role)
-VALUES ('marcioroger', 'admin123456', 'Márcio Roger', 'contato@rojeximoveis.com.br', 'admin')
+INSERT INTO public.app_users (username, password_hash, full_name, email, phone, role)
+VALUES ('marcioroger', 'admin123456', 'Márcio Roger', 'contato@rojeximoveis.com.br', '+5541999999999', 'admin')
 ON CONFLICT (username) DO NOTHING;
 
 -- =========================================================

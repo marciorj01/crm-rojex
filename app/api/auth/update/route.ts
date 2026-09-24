@@ -10,7 +10,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Não autorizado. Faça login primeiro.' }, { status: 401 });
     }
 
-    const { newUsername, newPassword, fullName, email } = await req.json();
+    const { newUsername, newPassword, fullName, email, phone } = await req.json();
 
     if (!newUsername || !newPassword) {
       return NextResponse.json({ error: 'Usuário e senha são obrigatórios.' }, { status: 400 });
@@ -20,11 +20,11 @@ export async function POST(req: Request) {
     const cleanPassword = newPassword.trim();
     const cleanFullName = (fullName || 'Márcio Roger').trim();
     const cleanEmail = (email || 'admin@rojex.com.br').trim();
+    const cleanPhone = (phone || '+5541999999999').trim();
 
     const supabase = createAdminClient();
 
     // Atualiza ou insere na tabela app_users
-    // Se o usuário atual já existe pelo username anterior ou pelo ID
     const { data: existingUser } = await supabase
       .from('app_users')
       .select('*')
@@ -41,6 +41,7 @@ export async function POST(req: Request) {
           password_hash: cleanPassword,
           full_name: cleanFullName,
           email: cleanEmail,
+          phone: cleanPhone,
           updated_at: new Date().toISOString(),
         })
         .eq('id', existingUser.id)
@@ -55,6 +56,7 @@ export async function POST(req: Request) {
         username: data.username,
         full_name: data.full_name,
         email: data.email,
+        phone: data.phone,
         role: data.role,
       };
     } else {
@@ -66,6 +68,7 @@ export async function POST(req: Request) {
           password_hash: cleanPassword,
           full_name: cleanFullName,
           email: cleanEmail,
+          phone: cleanPhone,
           role: 'admin',
         })
         .select()
@@ -79,6 +82,7 @@ export async function POST(req: Request) {
         username: data.username,
         full_name: data.full_name,
         email: data.email,
+        phone: data.phone,
         role: data.role,
       };
     }
@@ -89,7 +93,7 @@ export async function POST(req: Request) {
 
     const response = NextResponse.json({
       success: true,
-      message: 'Credenciais atualizadas com sucesso!',
+      message: 'Credenciais e dados de contato atualizados com sucesso!',
       user: updatedUser,
     });
 
