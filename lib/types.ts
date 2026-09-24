@@ -7,7 +7,8 @@ export interface Property {
   price: number;
   bedrooms: number;
   bathrooms: number;
-  area: number;
+  area: number; // Área Total (m²)
+  built_area?: number; // Área Construída (m²)
   images: string[];
   status: 'active' | 'inactive' | 'sold';
   city?: string;
@@ -54,7 +55,8 @@ export interface PropertyFormData {
   price: number;
   bedrooms: number;
   bathrooms: number;
-  area: number;
+  area: number; // Área Total
+  built_area?: number; // Área Construída
   status: 'active' | 'inactive' | 'sold';
   cep: string;
   city: string;

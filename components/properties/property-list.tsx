@@ -275,9 +275,11 @@ export function PropertyList({ initialProperties }: PropertyListProps) {
                         <Bath className="w-4 h-4 text-sky-400" />
                         <span>{prop.bathrooms} WCs</span>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <Maximize2 className="w-4 h-4 text-sky-400" />
-                        <span>{prop.area} m²</span>
+                      <div className="flex items-center gap-1.5" title={prop.built_area ? `Área Total: ${prop.area} m² | Construída: ${prop.built_area} m²` : `Área Total: ${prop.area} m²`}>
+                        <Maximize2 className="w-4 h-4 text-sky-400 shrink-0" />
+                        <span className="truncate">
+                          {prop.built_area ? `${prop.built_area} / ${prop.area} m²` : `${prop.area} m²`}
+                        </span>
                       </div>
                     </div>
                   </div>

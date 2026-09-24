@@ -57,6 +57,7 @@ export async function GET() {
         const listingId = escapeXml(prop.code || `ROJ-${prop.id.substring(0, 8).toUpperCase()}`);
         const formattedPrice = Number(prop.price || 0).toFixed(2);
         const formattedArea = Number(prop.area || 0).toFixed(2);
+        const formattedBuiltArea = prop.built_area ? Number(prop.built_area).toFixed(2) : null;
 
         // Reunir todas as características
         const allFeatures = [
@@ -90,7 +91,10 @@ export async function GET() {
         xmlContent += `        <ListPrice>${formattedPrice}</ListPrice>\n`;
         xmlContent += `        <Bedrooms>${prop.bedrooms || 0}</Bedrooms>\n`;
         xmlContent += `        <Bathrooms>${prop.bathrooms || 0}</Bathrooms>\n`;
-        xmlContent += `        <LivingArea unit="square metres">${formattedArea}</LivingArea>\n`;
+        if (formattedBuiltArea) {
+          xmlContent += `        <LivingArea unit="square metres">${formattedBuiltArea}</LivingArea>\n`;
+        }
+        xmlContent += `        <LotArea unit="square metres">${formattedArea}</LotArea>\n`;
 
         // Características no padrão VRsync
         if (allFeatures.length > 0) {

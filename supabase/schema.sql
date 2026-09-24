@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS public.properties (
     price NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
     bedrooms INT NOT NULL DEFAULT 0,
     bathrooms INT NOT NULL DEFAULT 0,
-    area NUMERIC(10, 2) NOT NULL DEFAULT 0.00, -- em m²
+    area NUMERIC(10, 2) NOT NULL DEFAULT 0.00, -- Área Total (m²)
+    built_area NUMERIC(10, 2) DEFAULT 0.00, -- Área Construída (m²)
     images TEXT[] DEFAULT '{}', -- Lista de URLs ou caminhos das imagens
     status VARCHAR(50) NOT NULL DEFAULT 'active', -- active, inactive, sold
     
@@ -67,6 +68,7 @@ CREATE TABLE IF NOT EXISTS public.properties (
 
 -- Garantir que as novas colunas existam mesmo se a tabela já foi criada anteriormente
 ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS code VARCHAR(50) DEFAULT '';
+ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS built_area NUMERIC(10, 2) DEFAULT 0.00;
 ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS cep VARCHAR(10) DEFAULT '';
 ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS property_status VARCHAR(100) DEFAULT 'Pronto para morar';
 ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS standard VARCHAR(100) DEFAULT 'Médio padrão';

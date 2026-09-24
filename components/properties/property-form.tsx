@@ -146,7 +146,8 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
     property_type: initialProperty?.property_type || 'Apartamento',
     bedrooms: initialProperty?.bedrooms?.toString() || '2',
     bathrooms: initialProperty?.bathrooms?.toString() || '2',
-    area: initialProperty?.area?.toString() || '',
+    area: initialProperty?.area?.toString() || '', // Área Total (m²)
+    built_area: initialProperty?.built_area?.toString() || '', // Área Construída (m²)
     status: (initialProperty?.status || 'active') as 'active' | 'inactive' | 'sold',
     // Endereço e CEP
     cep: initialProperty?.cep || '',
@@ -358,7 +359,8 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
       price: rawPrice,
       bedrooms: parseInt(formData.bedrooms) || 0,
       bathrooms: parseInt(formData.bathrooms) || 0,
-      area: parseFloat(formData.area) || 0,
+      area: parseFloat(formData.area) || 0, // Área Total (m²)
+      built_area: parseFloat(formData.built_area) || 0, // Área Construída (m²)
       status: formData.status,
       cep: formData.cep,
       city: formData.city,
@@ -553,16 +555,31 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-2">
-              Área Útil (m²) <span className="text-rose-400">*</span>
+              ÁREA TOTAL (M²) <span className="text-rose-400">*</span>
             </label>
             <input
               type="number"
               name="area"
               value={formData.area}
               onChange={handleChange}
-              placeholder="Ex: 120"
+              placeholder="Ex: 3000"
               step="0.01"
               required
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 transition"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-2">
+              ÁREA CONSTRUÍDA (M²)
+            </label>
+            <input
+              type="number"
+              name="built_area"
+              value={formData.built_area}
+              onChange={handleChange}
+              placeholder="Ex: 250"
+              step="0.01"
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 transition"
             />
           </div>
