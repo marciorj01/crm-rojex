@@ -2,16 +2,19 @@
 const nextConfig = {
   async rewrites() {
     return [
-      // Permite que a Loft (e outros portais) acessem o feed XML
-      // via URL terminando em .xml, como exigido pela integração.
-      // Exemplo: https://crm-rojex.vercel.app/portais/feeds/imoveis.xml
+      // URL exata exigida pela Loft para integração de imóveis
+      // https://crm-rojex.vercel.app/portais/feeds/arquivo.xml
       {
-        source: '/portais/feeds/imoveis.xml',
+        source: '/portais/feeds/arquivo.xml',
         destination: '/api/feed',
       },
-      // Alternativa genérica caso queira usar outro nome de arquivo
+      // Alternativas para outros portais
       {
         source: '/feed.xml',
+        destination: '/api/feed',
+      },
+      {
+        source: '/portais/feeds/imoveis.xml',
         destination: '/api/feed',
       },
     ];
