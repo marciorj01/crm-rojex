@@ -1,16 +1,8 @@
-﻿# ===========================================================
-# Supabase Project Configuration — CRM ROJEX
-# Documentação: https://supabase.com/docs/guides/cli/config
-# ===========================================================
+project_id = "crm-rojex"
 
-[project]
-# project_id = "seu-project-ref-aqui"  # Preencha com seu Project Reference ID
-
-# ---------------------------------------------------------------------------
-# Edge Functions
-# ---------------------------------------------------------------------------
+[auth]
+enable_signup = false
+minimum_password_length = 12
 
 [functions.loft-xml-feed]
-# verify_jwt = false permite que a URL seja acessada publicamente
-# sem envio de Authorization header — necessário para o portal Loft
 verify_jwt = false

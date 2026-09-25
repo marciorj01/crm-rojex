@@ -1,18 +1,10 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import 'server-only';
+import { createClient } from '@supabase/supabase-js';
 
-function cleanSupabaseUrl(url: string): string {
-  if (!url) return '';
-  return url.trim().replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
-}
-
+// Only public feed generation and authenticated inbound webhooks use this client.
 export function createAdminClient() {
-  const supabaseUrl = cleanSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL || '');
-  const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim();
-
-  return createSupabaseClient(supabaseUrl, supabaseServiceKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!url || !key) throw new Error('Configure SUPABASE_SERVICE_ROLE_KEY e NEXT_PUBLIC_SUPABASE_URL.');
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }

@@ -3,18 +3,19 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { PROPERTY_TYPES, propertyErrors } from '@/supabase/functions/_shared/feed';
 import { Property } from '@/lib/types';
-import { 
-  Upload, 
-  X, 
-  Loader2, 
-  ImagePlus, 
-  CheckCircle2, 
-  AlertCircle, 
-  ChevronDown, 
-  Plus, 
-  Sparkles, 
-  MapPin, 
+import {
+  Upload,
+  X,
+  Loader2,
+  ImagePlus,
+  CheckCircle2,
+  AlertCircle,
+  ChevronDown,
+  Plus,
+  Sparkles,
+  MapPin,
   Hash,
   ArrowLeft
 } from 'lucide-react';
@@ -140,6 +141,18 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
 
   // Form State
   const [formData, setFormData] = useState({
+    feed_enabled: initialProperty?.feed_enabled || false,
+    transaction_type: initialProperty?.transaction_type || 'sale',
+    rental_price: initialProperty?.rental_price?.toString() ?? '',
+    condominium: initialProperty?.condominium?.toString() ?? '',
+    yearly_tax: initialProperty?.yearly_tax?.toString() ?? '',
+    living_area: initialProperty?.living_area?.toString() ?? '',
+    suites: initialProperty?.suites?.toString() ?? '',
+    parking_spaces: initialProperty?.parking_spaces?.toString() ?? '',
+    street_number: initialProperty?.street_number || '',
+    complement: initialProperty?.complement || '',
+    latitude: initialProperty?.latitude?.toString() ?? '',
+    longitude: initialProperty?.longitude?.toString() ?? '',
     code: initialProperty?.code || '',
     title: initialProperty?.title || '',
     description: initialProperty?.description || '',
@@ -148,13 +161,13 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
     bathrooms: initialProperty?.bathrooms?.toString() || '2',
     area: initialProperty?.area?.toString() || '', // Área Total (m²)
     built_area: initialProperty?.built_area?.toString() || '', // Área Construída (m²)
-    status: (initialProperty?.status || 'active') as 'active' | 'inactive' | 'sold',
+    status: (initialProperty?.status || 'inactive') as 'active' | 'inactive' | 'sold',
     // Endereço e CEP
     cep: initialProperty?.cep || '',
     address: initialProperty?.address || '',
     neighborhood: initialProperty?.neighborhood || '',
-    city: initialProperty?.city || 'São Paulo',
-    state: initialProperty?.state || 'SP',
+    city: initialProperty?.city || '',
+    state: initialProperty?.state || '',
     // 5. Características Desejadas
     property_status: initialProperty?.property_status || 'Pronto para morar',
     standard: initialProperty?.standard || 'Médio padrão',
@@ -251,11 +264,11 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
 
   // Adicionar Opção Personalizada
   const addCustomOption = (
-    inputVal: string, 
-    setInputVal: React.Dispatch<React.SetStateAction<string>>, 
-    list: string[], 
-    setList: React.Dispatch<React.SetStateAction<string[]>>, 
-    selected: string[], 
+    inputVal: string,
+    setInputVal: React.Dispatch<React.SetStateAction<string>>,
+    list: string[],
+    setList: React.Dispatch<React.SetStateAction<string[]>>,
+    selected: string[],
     setSelected: React.Dispatch<React.SetStateAction<string[]>>
   ) => {
     const trimmed = inputVal.trim();
@@ -283,8 +296,11 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+        if (!['image/jpeg','image/png','image/webp','image/avif','image/gif'].includes(file.type) || file.size > 10 * 1024 * 1024) {
+          throw new Error('Use imagens JPEG, PNG, WebP, AVIF ou GIF de at? 10 MiB.');
+        }
+        const fileExt = file.type.split('/')[1];
+        const fileName = `${crypto.randomUUID()}.${fileExt}`;
         const filePath = `properties/${fileName}`;
 
         // Upload para o Bucket 'property_images'
@@ -310,15 +326,15 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
         }
       }
 
-      setUploadedImages((prev) => [...prev, ...newImageUrls]);
       setMessage({ type: 'success', text: `${newImageUrls.length} imagem(ns) adicionada(s) com sucesso!` });
     } catch (err: any) {
       console.error('Erro no upload de imagens:', err);
-      setMessage({ 
-        type: 'error', 
-        text: 'Erro ao enviar imagens. Verifique a conexão com o Supabase Storage.' 
+      setMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Erro ao enviar imagens.'
       });
     } finally {
+      if (newImageUrls.length) setUploadedImages(prev => [...prev, ...newImageUrls]);
       setUploadingImages(false);
     }
   };
@@ -332,7 +348,7 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.title || rawPrice <= 0 || !formData.area) {
+    if (!formData.title.trim() || (formData.transaction_type !== 'rent' && rawPrice <= 0) || Number(formData.area) <= 0) {
       setMessage({ type: 'error', text: 'Preencha todos os campos obrigatórios (Título, Preço e Área).' });
       return;
     }
@@ -346,12 +362,24 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
       if (initialProperty?.code) {
         finalCode = initialProperty.code;
       } else {
-        const randNum = Math.floor(1000 + Math.random() * 9000);
-        finalCode = `ROJ-${randNum}`;
+        finalCode = `ROJ-${crypto.randomUUID().toUpperCase()}`;
       }
     }
 
+    const optionalNumber = (value: string) => value.trim() === '' ? null : Number(value);
     const payload = {
+      feed_enabled: formData.feed_enabled,
+      transaction_type: formData.transaction_type,
+      rental_price: optionalNumber(formData.rental_price),
+      condominium: optionalNumber(formData.condominium),
+      yearly_tax: optionalNumber(formData.yearly_tax),
+      living_area: optionalNumber(formData.living_area),
+      suites: optionalNumber(formData.suites),
+      parking_spaces: optionalNumber(formData.parking_spaces),
+      street_number: formData.street_number.trim(),
+      complement: formData.complement.trim(),
+      latitude: optionalNumber(formData.latitude),
+      longitude: optionalNumber(formData.longitude),
       code: finalCode,
       title: formData.title,
       description: formData.description,
@@ -378,6 +406,14 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
       features_premium: selectedPremium,
     };
 
+    if (payload.feed_enabled && payload.status === 'active') {
+      const problems = propertyErrors({ ...payload, id: initialProperty?.id || 'novo' });
+      if (problems.length) {
+        setMessage({ type: 'error', text: problems.join('. ') });
+        setLoading(false);
+        return;
+      }
+    }
     try {
       if (isEditing && initialProperty) {
         // Modo Edição: UPDATE
@@ -449,6 +485,36 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
         </div>
       )}
 
+      <div className="glass-panel p-6 space-y-5">
+        <h2 className="text-lg font-bold text-white">Publicação e dados para os portais</h2>
+        <label className="flex gap-3 items-center text-sm">
+          <input type="checkbox" checked={formData.feed_enabled} onChange={e => setFormData(prev => ({ ...prev, feed_enabled:e.target.checked }))} />
+          Incluir no feed quando o imóvel estiver ativo
+        </label>
+        <p className="text-xs text-slate-400">Preencha os dados reais antes de publicar. IPTU é o valor anual e aluguel é o valor mensal. A importação depende da aprovação do portal.</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <label className="text-xs text-slate-300">Finalidade
+            <select name="transaction_type" value={formData.transaction_type} onChange={handleChange} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 mt-2">
+              <option value="sale">Venda</option><option value="rent">Loca??o</option><option value="sale_rent">Venda e loca??o</option>
+            </select>
+          </label>
+          {([
+            ['rental_price','Aluguel mensal (R$)'], ['condominium','Condomínio mensal (R$)'], ['yearly_tax','IPTU anual (R$)'],
+            ['living_area','Área útil (m²)'], ['suites','Quantidade de suítes'], ['parking_spaces','Quantidade de vagas'],
+            ['latitude','Latitude'], ['longitude','Longitude'],
+          ] as const).map(([name,label]) => <label key={name} className="text-xs text-slate-300">{label}
+            <input type="number" name={name} value={formData[name]} onChange={handleChange}
+              step={name === 'suites' || name === 'parking_spaces' ? '1' : 'any'}
+              min={name === 'latitude' ? -90 : name === 'longitude' ? -180 : 0}
+              max={name === 'latitude' ? 90 : name === 'longitude' ? 180 : undefined}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 mt-2" />
+          </label>)}
+          {([['street_number','Número (ou S/N)'],['complement','Complemento']] as const).map(([name,label]) => <label key={name} className="text-xs text-slate-300">{label}
+            <input name={name} value={formData[name]} onChange={handleChange} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 mt-2" />
+          </label>)}
+        </div>
+      </div>
+
       {/* Card 1: Informações Básicas */}
       <div className="glass-panel p-6 space-y-6">
         <h2 className="text-lg font-bold text-white border-b border-slate-800 pb-3 flex items-center gap-2">
@@ -467,12 +533,13 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
               type="text"
               name="code"
               value={formData.code}
+              readOnly={isEditing}
               onChange={handleChange}
               placeholder="Ex: ROJ-101, AP-204 (Auto se vazio)"
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 uppercase font-mono transition"
             />
             <span className="text-[10px] text-slate-400 mt-1 block">
-              Se deixar vazio, geramos um código curto automático.
+              Se deixar vazio, geramos um código único automático.
             </span>
           </div>
 
@@ -501,14 +568,8 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
               onChange={handleChange}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-sky-500 transition"
             >
-              <option value="Apartamento">Apartamento</option>
-              <option value="Casa">Casa / Sobrado</option>
-              <option value="Casa em Condomínio">Casa em Condomínio</option>
-              <option value="Cobertura">Cobertura</option>
-              <option value="Terreno">Terreno / Lote</option>
-              <option value="Comercial">Sala Comercial / Galpão</option>
-              <option value="Studio / Flat">Studio / Flat</option>
-              <option value="Chácara / Sítio">Chácara / Sítio</option>
+              {formData.property_type && !PROPERTY_TYPES[formData.property_type] && <option value={formData.property_type}>{formData.property_type} (selecione um tipo específico)</option>}
+              {Object.keys(PROPERTY_TYPES).map(type => <option key={type} value={type}>{type}</option>)}
             </select>
           </div>
 
@@ -522,7 +583,7 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
               onChange={handleChange}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-sky-500 transition"
             >
-              <option value="active">Ativo (Visível no Feed e Loft)</option>
+              <option value="active">Ativo (disponível)</option>
               <option value="inactive">Inativo (Rascunho)</option>
               <option value="sold">Vendido / Alugado</option>
             </select>
@@ -542,7 +603,7 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
                 value={displayPrice}
                 onChange={handlePriceChange}
                 placeholder="R$ 0,00"
-                required
+                required={formData.transaction_type !== 'rent'}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm font-semibold text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 transition"
               />
             </div>

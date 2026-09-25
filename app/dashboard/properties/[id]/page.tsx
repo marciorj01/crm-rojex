@@ -1,25 +1,26 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { PropertyForm } from '@/components/properties/property-form';
 import { notFound } from 'next/navigation';
 
 export const revalidate = 0;
 
 interface EditPropertyPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function EditPropertyPage({ params }: EditPropertyPageProps) {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   const { data: property, error } = await supabase
     .from('properties')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', (await params).id)
     .maybeSingle();
 
-  if (error || !property) {
+  if (error) throw error;
+  if (!property) {
     notFound();
   }
 

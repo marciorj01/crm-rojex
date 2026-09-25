@@ -1,85 +1,39 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { apiError, isUuid, readJson } from '@/lib/http';
+import { normalizeLead } from '@/lib/leads';
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    // 1. Validação de Segurança via Token no Cabeçalho Authorization
-    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
-    const webhookSecret = process.env.LEAD_WEBHOOK_SECRET || 'token_secreto_webhook_rojex_2026';
-
-    if (!authHeader) {
-      return NextResponse.json(
-        { success: false, message: 'Cabeçalho Authorization não fornecido.' },
-        { status: 401 }
-      );
+    const secret = process.env.LEAD_WEBHOOK_SECRET;
+    if (!secret || secret.length < 32) return NextResponse.json({ error: 'Webhook não configurado.' }, { status: 503 });
+    const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i,'').trim();
+    const hash = (s: string) => createHash('sha256').update(s).digest();
+    if (!token || !timingSafeEqual(hash(token),hash(secret))) return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 });
+    const body = await readJson(req);
+    let lead: ReturnType<typeof normalizeLead>;
+    try { lead = normalizeLead(body); }
+    catch { return NextResponse.json({ error: 'Lead inválido. Confira os dados de contato e os limites dos campos.' }, { status: 400 }); }
+    const client = createAdminClient();
+    let propertyId: string | null = null;
+    if (lead.listing) {
+      const column = isUuid(lead.listing) ? 'id' : 'code';
+      const { data, error } = await client.from('properties').select('id')
+        .eq(column,column === 'id' ? lead.listing : lead.listing.toUpperCase()).maybeSingle();
+      if (error) throw error;
+      if (!data) return NextResponse.json({ error:'Imóvel do anúncio não encontrado.' }, { status:422 });
+      propertyId = data.id;
     }
-
-    // Suporta tanto "Bearer TOKEN" quanto apenas "TOKEN"
-    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-
-    if (token !== webhookSecret) {
-      return NextResponse.json(
-        { success: false, message: 'Token de autorização inválido.' },
-        { status: 403 }
-      );
+    const payload = { name:lead.name, email:lead.email, phone:lead.phone, message:lead.message,
+      source:'Loft', external_id:lead.external_id, property_id:propertyId, status:'new' };
+    const { data, error } = await client.from('leads').insert(payload).select('id').single();
+    if (error?.code === '23505' && lead.external_id) {
+      const existing = await client.from('leads').select('id').eq('source','Loft').eq('external_id',lead.external_id).single();
+      if (existing.error) throw existing.error;
+      return NextResponse.json({ success:true, lead_id:existing.data.id, duplicate:true });
     }
-
-    // 2. Extração dos Dados do Lead enviados pelo Portal / Webhook
-    const body = await req.json();
-
-    const name = body.name || body.client_name || body.contact?.name || 'Cliente Sem Nome';
-    const email = body.email || body.client_email || body.contact?.email || '';
-    const phone = body.phone || body.client_phone || body.contact?.phone || '';
-    const message = body.message || body.lead_message || body.notes || '';
-    const source = body.source || body.origin || 'Portal Loft';
-    const propertyId = body.property_id || body.listing_id || null;
-
-    if (!name && !email && !phone) {
-      return NextResponse.json(
-        { success: false, message: 'Dados incompletos do lead (é necessário nome, email ou telefone).' },
-        { status: 400 }
-      );
-    }
-
-    // 3. Gravação na tabela 'leads' no Supabase
-    const supabase = createAdminClient();
-
-    const { data: newLead, error } = await supabase
-      .from('leads')
-      .insert({
-        name,
-        email,
-        phone,
-        message,
-        source,
-        property_id: propertyId && propertyId.length === 36 ? propertyId : null,
-        status: 'new',
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Erro ao salvar lead no banco de dados:', error);
-      return NextResponse.json(
-        { success: false, message: 'Erro ao gravar lead no banco de dados Supabase.', details: error.message },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json(
-      {
-        success: true,
-        message: 'Lead recebido e gravado com sucesso no CRM.',
-        lead_id: newLead.id,
-      },
-      { status: 201 }
-    );
-  } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
-    console.error('Erro inesperado no Webhook de Leads:', err);
-    return NextResponse.json(
-      { success: false, message: 'Erro interno ao processar requisição de lead.', details: errorMessage },
-      { status: 500 }
-    );
-  }
+    if (error) throw error;
+    return NextResponse.json({ success:true, lead_id:data.id }, { status:201 });
+  } catch (error) { return apiError(error); }
 }

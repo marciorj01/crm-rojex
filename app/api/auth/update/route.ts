@@ -1,115 +1,39 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { getCurrentUser, AUTH_COOKIE_NAME } from '@/lib/auth';
-import { AppUser } from '@/lib/types';
+import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
+import { checkOrigin, apiError, readObject } from '@/lib/http';
 
 export async function POST(req: Request) {
+  const denied = checkOrigin(req); if (denied) return denied;
   try {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-      return NextResponse.json({ error: 'Não autorizado. Faça login primeiro.' }, { status: 401 });
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 });
+    const { newPassword, currentPassword, fullName, email, phone } = await readObject(req);
+    if (typeof fullName !== 'string' || !fullName.trim() || fullName.length > 150 ||
+      typeof email !== 'string' || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+      typeof phone !== 'string' || phone.length > 50 ||
+      (newPassword !== undefined && typeof newPassword !== 'string')) {
+      return NextResponse.json({ error: 'Confira nome, e-mail e telefone.' }, { status: 400 });
     }
-
-    const { newUsername, newPassword, fullName, email, phone } = await req.json();
-
-    if (!newUsername || !newPassword) {
-      return NextResponse.json({ error: 'Usuário e senha são obrigatórios.' }, { status: 400 });
-    }
-
-    const cleanUsername = newUsername.trim().toLowerCase();
-    const cleanPassword = newPassword.trim();
-    const cleanFullName = (fullName || 'Márcio Roger').trim();
-    const cleanEmail = (email || 'admin@rojex.com.br').trim();
-    const cleanPhone = (phone || '+5541999999999').trim();
-
-    const supabase = createAdminClient();
-
-    // Atualiza ou insere na tabela app_users
-    const { data: existingUser } = await supabase
-      .from('app_users')
-      .select('*')
-      .eq('username', currentUser.username)
-      .maybeSingle();
-
-    let updatedUser: AppUser;
-
-    if (existingUser) {
-      const { data, error } = await supabase
-        .from('app_users')
-        .update({
-          username: cleanUsername,
-          password_hash: cleanPassword,
-          full_name: cleanFullName,
-          email: cleanEmail,
-          phone: cleanPhone,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existingUser.id)
-        .select()
-        .single();
-
-      if (error) {
-        throw error;
+    const client = await createClient();
+    if (newPassword) {
+      if (newPassword.length < 12 || newPassword.length > 256 || typeof currentPassword !== 'string' || currentPassword.length > 256) {
+        return NextResponse.json({ error: 'Informe a senha atual e uma nova senha de 12 a 256 caracteres.' }, { status: 400 });
       }
-      updatedUser = {
-        id: data.id,
-        username: data.username,
-        full_name: data.full_name,
-        email: data.email,
-        phone: data.phone,
-        role: data.role,
-      };
-    } else {
-      // Inserção nova
-      const { data, error } = await supabase
-        .from('app_users')
-        .insert({
-          username: cleanUsername,
-          password_hash: cleanPassword,
-          full_name: cleanFullName,
-          email: cleanEmail,
-          phone: cleanPhone,
-          role: 'admin',
-        })
-        .select()
-        .single();
-
-      if (error) {
-        throw error;
-      }
-      updatedUser = {
-        id: data.id,
-        username: data.username,
-        full_name: data.full_name,
-        email: data.email,
-        phone: data.phone,
-        role: data.role,
-      };
+      const { error: authError } = await client.auth.signInWithPassword({ email: user.username, password: currentPassword });
+      if (authError) return NextResponse.json({ error: 'Não foi possível confirmar a senha atual.' }, { status: 401 });
+      const { error } = await client.auth.updateUser({ password: newPassword });
+      if (error) return NextResponse.json({ error: 'Não foi possível alterar a senha. Confira a política de senhas.' }, { status: 400 });
     }
-
-    // Renovar o cookie de sessão com os novos dados
-    const sessionData = JSON.stringify(updatedUser);
-    const token = Buffer.from(sessionData).toString('base64');
-
-    const response = NextResponse.json({
-      success: true,
-      message: 'Credenciais e dados de contato atualizados com sucesso!',
-      user: updatedUser,
-    });
-
-    response.cookies.set({
-      name: AUTH_COOKIE_NAME,
-      value: token,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30,
-    });
-
-    return response;
-  } catch (err: any) {
-    console.error('Erro ao atualizar usuário:', err);
-    return NextResponse.json({ error: err.message || 'Erro ao atualizar dados de acesso.' }, { status: 500 });
-  }
+    const { error } = await client.from('app_users').update({
+      full_name: fullName.trim(), email: email.trim(), phone: phone.trim(),
+    }).eq('id', user.id);
+    if (error) {
+      console.error('Falha ao salvar perfil', { error });
+      return NextResponse.json({ error: newPassword
+        ? 'A senha foi alterada, mas os dados de contato não foram salvos. Recarregue e atualize somente o contato.'
+        : 'Não foi possível salvar os dados de contato.' }, { status: 500 });
+    }
+    return NextResponse.json({ success: true, user: await getCurrentUser() });
+  } catch (error) { return apiError(error); }
 }

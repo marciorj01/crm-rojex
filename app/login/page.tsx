@@ -7,10 +7,11 @@ import { Building, Lock, User, LogIn, Loader2, AlertCircle, Sparkles } from 'luc
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectUrl = searchParams.get('redirect') || '/dashboard';
+  const requestedPath = searchParams.get('redirect') || '/dashboard';
+  const redirectUrl = /^\/dashboard(?:\/[^\\]*)?$/.test(requestedPath) ? requestedPath : '/dashboard';
 
-  const [username, setUsername] = useState('marcioroger');
-  const [password, setPassword] = useState('admin123456');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -68,16 +69,16 @@ function LoginForm() {
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-2">
-              Usuário
+              E-mail
             </label>
             <div className="relative">
               <User className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
-                type="text"
+                type="email" autoComplete="username"
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Seu usuário de acesso"
+                placeholder="Seu e-mail de acesso"
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition"
               />
             </div>
@@ -90,7 +91,7 @@ function LoginForm() {
             <div className="relative">
               <Lock className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
-                type="password"
+                type="password" autoComplete="current-password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

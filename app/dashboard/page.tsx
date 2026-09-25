@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { 
   Building2, 
   Users, 
@@ -14,12 +14,12 @@ import {
 export const revalidate = 0; // Server rendering sempre atualizado
 
 export default async function DashboardOverviewPage() {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   // Buscar contagens e métricas ativas do Supabase (excluindo lixeira)
   const [{ count: totalProperties }, { count: activeProperties }, { count: totalLeads }, { count: newLeads }] = await Promise.all([
     supabase.from('properties').select('*', { count: 'exact', head: true }).is('deleted_at', null),
-    supabase.from('properties').select('*', { count: 'exact', head: true }).eq('status', 'active').is('deleted_at', null),
+    supabase.from('properties').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('feed_enabled', true).is('deleted_at', null),
     supabase.from('leads').select('*', { count: 'exact', head: true }).is('deleted_at', null),
     supabase.from('leads').select('*', { count: 'exact', head: true }).eq('status', 'new').is('deleted_at', null),
   ]);
@@ -43,7 +43,7 @@ export default async function DashboardOverviewPage() {
               CRM Imobiliário ROJEX
             </h1>
             <p className="text-slate-300 text-sm mt-1 max-w-2xl">
-              Sua carteira de imóveis está conectada e pronta para exportação via XML Feed (VRsync) para o portal Loft e captação de leads em tempo real.
+              Gerencie sua carteira e selecione os imóveis para o feed. A publicação depende da configuração e aprovação do portal.
             </p>
           </div>
 
@@ -75,7 +75,7 @@ export default async function DashboardOverviewPage() {
           </div>
         </div>
 
-        {/* Card 2: Imóveis Ativos (No Feed) */}
+        {/* Card 2: Imóveis Ativos */}
         <div className="glass-panel p-5 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Ativos no Feed Loft</span>
@@ -85,7 +85,7 @@ export default async function DashboardOverviewPage() {
           </div>
           <div className="flex items-baseline justify-between">
             <span className="text-3xl font-extrabold text-emerald-400">{activeProperties || 0}</span>
-            <span className="text-xs text-emerald-500 font-medium">Sincronizados</span>
+            <span className="text-xs text-emerald-500 font-medium">Selecionados</span>
           </div>
         </div>
 

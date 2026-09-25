@@ -25,6 +25,7 @@ export default function SettingsPage() {
   // Security Form State
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -44,6 +45,7 @@ export default function SettingsPage() {
     try {
       const res = await fetch('/api/trash');
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Falha ao carregar lixeira.');
       setTrashProperties(data.properties || []);
       setTrashLeads(data.leads || []);
     } catch (err: any) {
@@ -54,13 +56,17 @@ export default function SettingsPage() {
   };
 
   useEffect(() => {
-    // Buscar usuário inicial
-    setUsername('marcioroger');
-    setFullName('Márcio Roger');
-    setEmail('contato@rojeximoveis.com.br');
-    setPhone('+5541999999999');
-
-    fetchTrash();
+    let active = true;
+    Promise.all([fetch('/api/auth/me'), fetch('/api/trash')]).then(async ([profileResponse, trashResponse]) => {
+      const profile = await profileResponse.json();
+      const trash = await trashResponse.json();
+      if (!profileResponse.ok || !trashResponse.ok) throw new Error('Não foi possível carregar as configurações.');
+      if (!active) return;
+      setUsername(profile.user.username); setFullName(profile.user.full_name);
+      setEmail(profile.user.email); setPhone(profile.user.phone || '');
+      setTrashProperties(trash.properties); setTrashLeads(trash.leads);
+    }).catch(error => { if (active) setUserMsg({type:'error',text:error.message}); });
+    return () => { active = false; };
   }, []);
 
   // Salvar novo usuário e senha
@@ -76,6 +82,7 @@ export default function SettingsPage() {
         body: JSON.stringify({
           newUsername: username,
           newPassword: password,
+          currentPassword,
           fullName,
           email,
           phone,
@@ -88,8 +95,9 @@ export default function SettingsPage() {
         throw new Error(data.error || 'Erro ao atualizar credenciais.');
       }
 
-      setUserMsg({ type: 'success', text: 'Usuário e senha atualizados com sucesso!' });
+      setUserMsg({ type: 'success', text: 'Dados atualizados com sucesso!' });
       setPassword('');
+      setCurrentPassword('');
     } catch (err: any) {
       setUserMsg({ type: 'error', text: err.message || 'Erro ao salvar.' });
     } finally {
@@ -250,7 +258,7 @@ export default function SettingsPage() {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-2">
-                    E-mail de Contato (Feed & Portais)
+                    E-mail de contato do perfil
                   </label>
                   <input
                     type="email"
@@ -263,7 +271,7 @@ export default function SettingsPage() {
 
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-semibold text-slate-300 mb-2">
-                    Telefone / WhatsApp da Imobiliária (com +55 e DDD) <span className="text-amber-400">* Exigido pela Loft</span>
+                    Telefone / WhatsApp da Imobiliária (com +55 e DDD) <span className="text-amber-400">Contato comercial</span>
                   </label>
                   <input
                     type="text"
@@ -273,14 +281,14 @@ export default function SettingsPage() {
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 transition"
                   />
                   <span className="text-[10px] text-slate-400 mt-1 block">
-                    Formato aceito pela Loft: +55 seguido do DDD e número (Ex: +5541999999999)
+                    Use o formato internacional: +55 seguido do DDD e número.
                   </span>
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-2">
-                  Nome de Usuário (Login) <span className="text-rose-400">*</span>
+                  E-mail de acesso <span className="text-rose-400">*</span>
                 </label>
                 <div className="relative">
                   <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -288,8 +296,8 @@ export default function SettingsPage() {
                     type="text"
                     required
                     value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="marcioroger"
+                    readOnly
+                    autoComplete="username"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 transition"
                   />
                 </div>
@@ -297,13 +305,14 @@ export default function SettingsPage() {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-2">
-                  Nova Senha de Acesso <span className="text-rose-400">*</span>
+                  Nova senha (opcional)
                 </label>
                 <div className="relative">
                   <KeyRound className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="password"
-                    required
+                    autoComplete="new-password"
+                    minLength={12}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Digite a nova senha desejada"
@@ -311,10 +320,15 @@ export default function SettingsPage() {
                   />
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Recomendado usar ao menos 6 dígitos.
+                  Deixe em branco para manter a senha atual. Use ao menos 12 caracteres para trocar.
                 </p>
               </div>
 
+              {password && <div>
+                <label className="block text-xs text-slate-300 mb-2" htmlFor="current-password">Senha atual para confirmar a troca</label>
+                <input id="current-password" type="password" autoComplete="current-password" required value={currentPassword}
+                  onChange={e => setCurrentPassword(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3" />
+              </div>}
               <div className="pt-2">
                 <button
                   type="submit"

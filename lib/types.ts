@@ -1,4 +1,17 @@
 export interface Property {
+  feed_enabled?: boolean;
+  transaction_type?: 'sale' | 'rent' | 'sale_rent';
+  rental_price?: number | null;
+  condominium?: number | null;
+  yearly_tax?: number | null;
+  living_area?: number | null;
+  suites?: number | null;
+  parking_spaces?: number | null;
+  street_number?: string | null;
+  complement?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+
   id: string;
   code?: string; // Código de Referência / ID amigável (Ex: ROJ-101, AP-204)
   title: string;

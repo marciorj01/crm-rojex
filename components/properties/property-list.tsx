@@ -137,7 +137,7 @@ export function PropertyList({ initialProperties }: PropertyListProps) {
             className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-medium text-slate-300 focus:outline-none focus:border-sky-500 transition"
           >
             <option value="all">Todos os Status</option>
-            <option value="active">Ativos (No Feed)</option>
+            <option value="active">Ativos</option>
             <option value="inactive">Inativos</option>
             <option value="sold">Vendidos</option>
           </select>
@@ -208,7 +208,7 @@ export function PropertyList({ initialProperties }: PropertyListProps) {
                     <div className="absolute top-3 left-3">
                       {prop.status === 'active' && (
                         <span className="inline-flex items-center gap-1 bg-emerald-500/90 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg">
-                          <CheckCircle className="w-3 h-3" /> ATIVO (NO FEED)
+                          <CheckCircle className="w-3 h-3" /> {prop.feed_enabled ? 'ATIVO / FEED' : 'ATIVO'}
                         </span>
                       )}
                       {prop.status === 'inactive' && (
@@ -288,9 +288,9 @@ export function PropertyList({ initialProperties }: PropertyListProps) {
                 {/* Price and Actions */}
                 <div className="p-5 pt-0 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Preço de Venda</span>
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block">{prop.transaction_type === 'rent' ? 'Aluguel mensal' : 'Preço de venda'}</span>
                     <span className="text-lg font-extrabold text-white">
-                      {formatPrice(prop.price)}
+                      {formatPrice(prop.transaction_type === 'rent' ? prop.rental_price || 0 : prop.price)}
                     </span>
                   </div>
 

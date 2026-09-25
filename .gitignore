@@ -24,3 +24,10 @@
 
 # Vercel
 .vercel
+
+# Segredos, caches e artefatos locais
+.env*
+!.env.local.example
+*.tsbuildinfo
+supabase/.temp/
+coverage/

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search, User, Plus, ExternalLink, Settings, LogOut } from 'lucide-react';
 
-export function Navbar() {
+export function Navbar({ user }: { user: import('@/lib/types').AppUser }) {
   const router = useRouter();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -65,16 +65,16 @@ export function Navbar() {
               <User className="w-5 h-5 text-sky-400" />
             </div>
             <div className="hidden xl:block text-left">
-              <p className="text-xs font-semibold text-slate-200">Márcio Roger</p>
-              <p className="text-[10px] text-sky-400 font-mono">marcioroger</p>
+              <p className="text-xs font-semibold text-slate-200">{user.full_name}</p>
+              <p className="text-[10px] text-sky-400 font-mono">{user.username}</p>
             </div>
           </button>
 
           {showUserMenu && (
             <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-2xl p-2 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150">
               <div className="px-3 py-2 border-b border-slate-800 mb-1">
-                <p className="text-xs font-bold text-white">Márcio Roger</p>
-                <p className="text-[11px] text-slate-400">marcioroger (Admin)</p>
+                <p className="text-xs font-bold text-white">{user.full_name}</p>
+                <p className="text-[11px] text-slate-400">{user.username} (Admin)</p>
               </div>
 
               <Link

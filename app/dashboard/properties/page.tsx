@@ -1,21 +1,18 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { PropertyList } from '@/components/properties/property-list';
-
-export const revalidate = 0; // Sempre atualizado em tempo de execução
-
-export default async function PropertiesPage() {
-  const supabase = createAdminClient();
-
-  // Buscar apenas imóveis que NÃO estão na lixeira
-  const { data: properties, error } = await supabase
-    .from('properties')
-    .select('*')
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Erro ao buscar lista de imóveis:', error);
-  }
-
-  return <PropertyList initialProperties={properties || []} />;
+import { collectPages } from '@/supabase/functions/_shared/feed';
+import type { Property } from '@/lib/types';
+export const revalidate = 0;
+export default async function Page() {
+  const client = await createClient();
+  const signal = AbortSignal.timeout(25000);
+  const rows = await collectPages<Property>(async cursor => {
+    let query = client.from('properties').select('*').is('deleted_at',null).order('id').limit(500);
+    if(cursor) query=query.gt('id',cursor);
+    const { data,error }=await query.abortSignal(signal);
+    if(error) throw error;
+    return (data || []) as unknown as Property[];
+  });
+  rows.sort((a,b)=>b.created_at.localeCompare(a.created_at));
+  return <PropertyList initialProperties={rows} />;
 }
