@@ -1,0 +1,7 @@
+﻿# Configuração da Supabase Edge Function: loft-xml-feed
+# Documentação: https://supabase.com/docs/guides/functions
+
+[functions.loft-xml-feed]
+# Habilita acesso via URL pública sem necessidade de JWT
+# Necessário para que o portal Loft possa consumir o feed sem autenticação
+verify_jwt = false
