@@ -406,7 +406,7 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
       features_premium: selectedPremium,
     };
 
-    if (payload.feed_enabled && payload.status === 'active') {
+    if (payload.feed_enabled) {
       const problems = propertyErrors({ ...payload, id: initialProperty?.id || 'novo' });
       if (problems.length) {
         setMessage({ type: 'error', text: problems.join('. ') });
@@ -415,6 +415,15 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
       }
     }
     try {
+      if (payload.feed_enabled) {
+        const response = await fetch('/api/feed/validate', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...payload, id: initialProperty?.id }),
+          signal: AbortSignal.timeout(35000),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(Array.isArray(result.errors) ? result.errors.join('. ') : 'Não foi possível validar o feed');
+      }
       if (isEditing && initialProperty) {
         // Modo Edição: UPDATE
         const { error } = await supabase
@@ -469,7 +478,7 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
 
       {/* Alert Messages */}
       {message && (
-        <div
+        <div role={message.type === 'error' ? 'alert' : 'status'}
           className={`p-4 rounded-xl flex items-center gap-3 border ${
             message.type === 'success'
               ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
@@ -492,6 +501,7 @@ export function PropertyForm({ initialProperty }: PropertyFormProps) {
           Incluir no feed quando o imóvel estiver ativo
         </label>
         <p className="text-xs text-slate-400">Preencha os dados reais antes de publicar. IPTU é o valor anual e aluguel é o valor mensal. A importação depende da aprovação do portal.</p>
+        <p className="text-xs text-slate-400">Para o feed: título de 10 a 100 caracteres, descrição de 50 a 3000 e pelo menos 5 fotos JPEG distintas de até 7 MB. A primeira foto é a principal. Área útil e área construída devem representar medidas reais diferentes da área do terreno.</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <label className="text-xs text-slate-300">Finalidade
             <select name="transaction_type" value={formData.transaction_type} onChange={handleChange} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 mt-2">

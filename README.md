@@ -82,14 +82,25 @@ Não é necessário criar uma rota nova.
 O imóvel só entra na carga quando estiver ativo, sem exclusão lógica e com **Incluir no feed** marcado.
 Novos imóveis começam como rascunho e fora do feed. Preencha dados reais, incluindo finalidade,
 preços aplicáveis, área útil e total, localização e fotos. Aluguel e condomínio são mensais; IPTU é anual.
+Para habilitar o feed, o formulário valida título (10–100 caracteres), descrição (50–3000, incluindo
+características adicionais), código e ao menos cinco fotos JPEG distintas de até 7 MB.
+Uma pré-validação autenticada em `/api/feed/validate` verifica contato do servidor, código duplicado
+e fotos públicas antes do salvamento. O gerador repete as verificações ao servir o XML.
+Fotos do feed devem estar no bucket público `property_images` deste projeto; URLs de terceiros
+não são consultadas pelo servidor. As fotos existentes não são convertidas nem apagadas.
+As áreas exportadas são validadas individualmente; área construída não substitui a útil.
 Suítes e vagas podem ficar em branco quando desconhecidos. O código é único e estável na edição pela interface.
 
 O serializador usa namespace, nomes e valores documentados para VR-SYNC. Características livres
-entram na descrição, sem inventar valores para enums. CDATA trata inclusive o terminador ]]>.
+sem correspondência segura entram na descrição; as mapeadas usam `Features/Feature`.
+Valores monetários e áreas são enviados como inteiros, descartando frações apenas no XML.
+CDATA trata inclusive o terminador ]]>.
 Há paginação por UUID, prazo total de consulta de 25 segundos, limite operacional de 10.000 imóveis
 e aproximadamente 20 MiB de conteúdo de anúncios. Cache compartilhado: cinco minutos.
 Uma seleção inválida retorna 503 com identificador para consulta aos logs, sem carga parcial.
 Uma carga vazia válida retorna 200: confirme a seleção antes de enviar, pois o portal pode remover anúncios.
+Com o servidor local em execução, `npm.cmd run test:feed-http` confere os aliases e a proteção
+da pré-validação. Um teste HTTP aprovado com status 503 confirma erro seguro, não prontidão para publicar.
 
 **Homologação Loft pendente.** Os testes verificam XML bem formado e regras da aplicação.
 O XSD remoto não pôde ser obtido durante a implementação: não foi realizada validação XSD.

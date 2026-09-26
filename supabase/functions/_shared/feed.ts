@@ -7,7 +7,7 @@ export interface FeedProperty {
   status: string; deleted_at?: string | null; feed_enabled?: boolean;
   transaction_type?: string; rental_price?: number | null;
   condominium?: number | null; yearly_tax?: number | null;
-  living_area?: number | null; suites?: number | null; parking_spaces?: number | null;
+  living_area?: number | null; built_area?: number | null; suites?: number | null; parking_spaces?: number | null;
   address?: string; street_number?: string | null; complement?: string | null;
   city?: string; neighborhood?: string; state?: string; cep?: string;
   latitude?: number | null; longitude?: number | null;
@@ -50,6 +50,31 @@ export function cdata(value: unknown): string {
 export function listingId(p: Pick<FeedProperty, 'code' | 'id'>): string {
   return p.code?.trim() || p.id;
 }
+// Only unambiguous labels from the CRM are translated. Other labels remain text.
+export const FEATURE_TYPES: Record<string, string> = {
+  'Aquecimento': 'Heating', 'Ar-condicionado': 'Cooling', 'Lavanderia': 'Laundry',
+  'Closet': 'Closet', 'Varanda gourmet': 'Gourmet Balcony',
+  'Churrasqueira na varanda': 'Barbecue Balcony', 'Cozinha americana': 'American Kitchen',
+  'Lavabo': 'Lavabo', 'Sala de jantar': 'Dinner Room', 'Despensa': 'Pantry',
+  'Quarto de serviço': 'Service Room', 'Churrasqueira': 'BBQ',
+  'Salão de festas': 'Party Room', 'Espaço gourmet': 'Gourmet Area',
+  'Quadra poliesportiva': 'Sports Court', 'Playground': 'Playground',
+  'Brinquedoteca': 'Toys Place', 'Salão de jogos': 'Game room',
+  'Gerador elétrico': 'Generator', 'Bicicletário': 'Bicycles Place',
+  'Portão eletrônico': 'Electronic Gate', 'Guarita blindada': 'Armored Security Cabin',
+  'Isolamento acústico': 'Soundproofing',
+};
+export function feedFeatures(p: FeedProperty) {
+  const labels = [...new Set([...(p.features_comfort || []), ...(p.features_leisure || []),
+    ...(p.features_infrastructure || []), ...(p.features_security || []), ...(p.features_location || []),
+    ...(p.features_premium || []), ...(p.custom_features || [])])];
+  return { mapped: [...new Set(labels.filter(label => Object.hasOwn(FEATURE_TYPES, label)).map(label => FEATURE_TYPES[label]))],
+    text: labels.filter(label => !Object.hasOwn(FEATURE_TYPES, label)) };
+}
+export function feedDescription(p: FeedProperty): string {
+  const { text } = feedFeatures(p);
+  return cleanXml(p.description).trim() + (text.length ? `\n\nCaracterísticas: ${text.join('; ')}.` : '');
+}
 export function publicImageUrl(path: string, supabaseUrl: string): string {
   let url: URL;
   if (/^https?:\/\//i.test(path)) url = new URL(path);
@@ -63,18 +88,25 @@ export function publicImageUrl(path: string, supabaseUrl: string): string {
 }
 
 // Business validation shared with the form; unknown values are never invented.
-export function propertyErrors(p: FeedProperty): string[] {
+export function propertyErrors(p: FeedProperty, storageUrl = 'https://storage.example.com'): string[] {
   const errors: string[] = [];
+  const length = (value: unknown) => [...cleanXml(value).trim()].length;
+  if (!listingId(p) || length(listingId(p)) > 50) errors.push('Código do imóvel deve ter entre 1 e 50 caracteres');
+  if (length(p.title) < 10 || length(p.title) > 100) errors.push('Título deve ter entre 10 e 100 caracteres');
+  if (length(p.description) < 50 || length(p.description) > 3000) errors.push('Descrição deve ter entre 50 e 3000 caracteres');
+  if (length(feedDescription(p)) > 3000) errors.push('Descrição com características ultrapassa 3000 caracteres');
   for (const [label, value] of Object.entries({ título:p.title, descrição:p.description,
     logradouro:p.address, número:p.street_number, bairro:p.neighborhood, cidade:p.city })) {
     if (typeof value !== 'string' || !value.trim()) errors.push(`Informe ${label}`);
   }
-  if (!PROPERTY_TYPES[p.property_type]) errors.push('Selecione um tipo de imóvel específico');
+  if (!Object.hasOwn(PROPERTY_TYPES, p.property_type)) errors.push('Selecione um tipo de imóvel específico');
   if (!STATES[p.state || '']) errors.push('Informe uma UF válida');
   if (!/^\d{8}$/.test((p.cep || '').replace(/\D/g,''))) errors.push('Informe um CEP válido');
-  const positive = (n: unknown) => typeof n === 'number' && Number.isFinite(n) && n > 0;
+  // VR-SYNC imports integer amounts/areas. Values below 1 would become zero.
+  const positive = (n: unknown) => typeof n === 'number' && Number.isFinite(n) && n >= 1;
   if (!positive(p.area)) errors.push('Informe a área total');
   if (!positive(p.living_area)) errors.push('Informe a área útil');
+  if (p.built_area != null && (!Number.isFinite(p.built_area) || p.built_area < 0)) errors.push('Área construída inválida');
   if (!['sale','rent','sale_rent'].includes(p.transaction_type || '')) errors.push('Informe a finalidade');
   if (p.transaction_type !== 'rent' && !positive(p.price)) errors.push('Informe o preço de venda');
   if (p.transaction_type !== 'sale' && !positive(p.rental_price)) errors.push('Informe o aluguel mensal');
@@ -84,6 +116,8 @@ export function propertyErrors(p: FeedProperty): string[] {
     if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) errors.push(`Quantidade inválida: ${field}`);
   }
   if (p.property_type === 'Studio' && p.bedrooms < 1) errors.push('Studio exige ao menos um dormitório no VR-SYNC');
+  if (p.suites != null && p.suites > p.bedrooms) errors.push('Suítes não podem exceder o número de dormitórios');
+  if (p.features_comfort?.includes('Suíte') && !(p.suites && p.suites > 0)) errors.push('Informe a quantidade de suítes ou desmarque a característica Suíte');
   for (const field of ['condominium','yearly_tax'] as const) {
     const value = p[field];
     if (value != null && (typeof value !== 'number' || !Number.isFinite(value) || value < 0)) errors.push(`Valor inválido: ${field}`);
@@ -91,23 +125,28 @@ export function propertyErrors(p: FeedProperty): string[] {
   if ((p.latitude == null) !== (p.longitude == null)) errors.push('Informe latitude e longitude juntas');
   if (p.latitude != null && (!Number.isFinite(p.latitude) || Math.abs(p.latitude) > 90)) errors.push('Latitude inválida');
   if (p.longitude != null && (!Number.isFinite(p.longitude) || Math.abs(p.longitude) > 180)) errors.push('Longitude inválida');
-  if (!Array.isArray(p.images) || !p.images.length) errors.push('Adicione ao menos uma foto');
-  else for (const path of p.images) {
-    try { publicImageUrl(path, 'https://storage.example.com'); } catch { errors.push('Foto com endereço inválido'); }
+  if (!Array.isArray(p.images) || p.images.length < 5) errors.push('Adicione ao menos 5 fotos JPEG distintas para o feed');
+  if (Array.isArray(p.images)) {
+    const urls = new Set<string>();
+    for (const path of p.images) {
+      try {
+        const url = publicImageUrl(path, storageUrl);
+        if (urls.has(url)) errors.push('Remova fotos duplicadas da seleção do feed');
+        urls.add(url);
+        if (!/\.jpe?g$/i.test(new URL(url).pathname)) errors.push('Para o feed, use fotos JPEG (.jpg ou .jpeg)');
+      } catch { errors.push('Foto com endereço inválido'); }
+    }
   }
-  return errors;
+  return [...new Set(errors)];
 }
 
 function listingXml(p: FeedProperty, storageUrl: string): string {
-  const problems = propertyErrors(p);
+  const problems = propertyErrors(p, storageUrl);
   if (problems.length) throw new Error(`Imóvel ${listingId(p)}: ${problems.join('; ')}`);
   const type = PROPERTY_TYPES[p.property_type];
-  // Free-form characteristics remain in the description, not in enumerated Feature tags.
-  const features = [...new Set([...(p.features_comfort || []), ...(p.features_leisure || []),
-    ...(p.features_infrastructure || []), ...(p.features_security || []), ...(p.features_location || []),
-    ...(p.features_premium || []), ...(p.custom_features || [])])];
-  const description = p.description + (features.length ? `\n\nCaracterísticas: ${features.join('; ')}.` : '');
-  const amount = (tag: string, value: number | null | undefined) => value == null ? '' : `<${tag} currency="BRL">${value.toFixed(2)}</${tag}>`;
+  const features = feedFeatures(p).mapped;
+  const description = feedDescription(p);
+  const amount = (tag: string, value: number | null | undefined) => value == null ? '' : `<${tag} currency="BRL">${Math.trunc(value)}</${tag}>`;
   return `<Listing>
 <ListingID>${escapeXml(listingId(p))}</ListingID>
 <Title>${cdata(p.title)}</Title>
@@ -119,11 +158,12 @@ function listingXml(p: FeedProperty, storageUrl: string): string {
 <PropertyType>${escapeXml(type)}</PropertyType>
 <Description>${cdata(description)}</Description>
 ${p.transaction_type !== 'rent' ? amount('ListPrice', p.price) : ''}
-${p.transaction_type !== 'sale' ? `<RentalPrice currency="BRL" period="Monthly">${p.rental_price!.toFixed(2)}</RentalPrice>` : ''}
-<LotArea unit="square metres">${p.area.toFixed(2)}</LotArea>
-<LivingArea unit="square metres">${p.living_area!.toFixed(2)}</LivingArea>
+${p.transaction_type !== 'sale' ? `<RentalPrice currency="BRL" period="Monthly">${Math.trunc(p.rental_price!)}</RentalPrice>` : ''}
+<LotArea unit="square metres">${Math.trunc(p.area)}</LotArea>
+<LivingArea unit="square metres">${Math.trunc(p.living_area!)}</LivingArea>
 ${amount('PropertyAdministrationFee', p.condominium)}
 ${amount('YearlyTax', p.yearly_tax)}
+${features.length ? `<Features>${features.map(feature => `<Feature>${escapeXml(feature)}</Feature>`).join('')}</Features>` : ''}
 <Bedrooms>${p.bedrooms}</Bedrooms><Bathrooms>${p.bathrooms}</Bathrooms>
 ${p.suites == null ? '' : `<Suites>${p.suites}</Suites>`}
 ${p.parking_spaces == null ? '' : `<Garage type="Parking Space">${p.parking_spaces}</Garage>`}
@@ -139,11 +179,19 @@ ${p.latitude == null ? '' : `<Latitude>${p.latitude}</Latitude><Longitude>${p.lo
 </Location>`;
 }
 
-export function buildFeed(properties: FeedProperty[], contact: FeedContact, storageUrl: string, now = new Date()): string {
+export function validateFeedContact(contact: FeedContact): void {
   if (!contact.name?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email) || !/^\+[1-9]\d{9,14}$/.test(contact.phone)) {
     throw new Error('Configure nome, e-mail e telefone internacional do contato do feed');
   }
-  if (contact.website && !/^https:\/\//.test(contact.website)) throw new Error('O website deve usar HTTPS');
+  if (contact.website) {
+    try {
+      const url = new URL(contact.website);
+      if (url.protocol !== 'https:' || url.username || url.password) throw new Error();
+    } catch { throw new Error('O website deve ser uma URL HTTPS válida, sem credenciais'); }
+  }
+}
+export function buildFeed(properties: FeedProperty[], contact: FeedContact, storageUrl: string, now = new Date()): string {
+  validateFeedContact(contact);
   const contactXml = `<ContactInfo><Name>${cdata(contact.name)}</Name><Email>${escapeXml(contact.email)}</Email>${contact.website ? `<Website>${escapeXml(contact.website)}</Website>` : ''}<Telephone>${escapeXml(contact.phone)}</Telephone></ContactInfo>`;
   const ids = new Set<string>();
   const listings: string[] = [];
@@ -164,7 +212,7 @@ export function buildFeed(properties: FeedProperty[], contact: FeedContact, stor
 <Listings>${listings.join('\n')}</Listings></ListingDataFeed>`;
 }
 
-export const FEED_COLUMNS = 'id,code,title,description,property_type,price,area,bedrooms,bathrooms,images,status,deleted_at,feed_enabled,transaction_type,rental_price,condominium,yearly_tax,living_area,suites,parking_spaces,address,street_number,complement,city,neighborhood,state,cep,latitude,longitude,features_comfort,features_leisure,features_infrastructure,features_security,features_location,features_premium,custom_features';
+export const FEED_COLUMNS = 'id,code,title,description,property_type,price,area,bedrooms,bathrooms,images,status,deleted_at,feed_enabled,transaction_type,rental_price,condominium,yearly_tax,living_area,built_area,suites,parking_spaces,address,street_number,complement,city,neighborhood,state,cep,latitude,longitude,features_comfort,features_leisure,features_infrastructure,features_security,features_location,features_premium,custom_features';
 
 // Cursor pagination continues even when PostgREST caps pages below the requested size.
 export async function collectPages<T extends { id: string }>(fetchPage: (cursor?: string) => Promise<T[]>): Promise<T[]> {

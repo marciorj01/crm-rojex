@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint app components lib proxy.ts --max-warnings 0",
     "typecheck": "tsc --noEmit --incremental false",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "test:feed-http": "tsx --test tests/feed-http.integration.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
