@@ -1,8 +1,28 @@
 import { NextResponse } from 'next/server';
+import os from 'node:os';
+
+function isDevelopmentOrigin(request: Request, origin: string, target: URL): boolean {
+  if (process.env.NODE_ENV !== 'development') return false;
+  try {
+    const source = new URL(origin);
+    // Next dev may use its bind address in request.url. Only trust a local
+    // browser-facing Host, never arbitrary Host or forwarded headers.
+    if (source.origin !== origin || !['http:', 'https:'].includes(source.protocol) ||
+      source.protocol !== target.protocol || source.port !== target.port ||
+      source.host !== request.headers.get('host')) return false;
+    const hostname = source.hostname.replace(/^\[|\]$/g, '');
+    return ['localhost', '127.0.0.1', '::1'].includes(hostname) ||
+      Object.values(os.networkInterfaces()).some(addresses =>
+        addresses?.some(({ address }) => address === hostname));
+  } catch {
+    return false;
+  }
+}
 
 export function checkOrigin(request: Request): NextResponse | null {
   const origin = request.headers.get('origin');
-  if (!origin || origin !== new URL(request.url).origin) {
+  const target = new URL(request.url);
+  if (!origin || (origin !== target.origin && !isDevelopmentOrigin(request, origin, target))) {
     return NextResponse.json({ error: 'Origem da solicitação não permitida.' }, { status: 403 });
   }
   return null;
