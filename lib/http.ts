@@ -24,6 +24,9 @@ export async function readObject(request: Request): Promise<Record<string, unkno
   return body as Record<string, unknown>;
 }
 export async function readJson(request: Request, limit = 65536): Promise<unknown> {
+  return JSON.parse(await readText(request, limit));
+}
+export async function readText(request: Request, limit = 65536): Promise<string> {
   if (Number(request.headers.get('content-length')) > limit) throw new BodyTooLarge();
   const reader = request.body?.getReader();
   if (!reader) throw new SyntaxError('Corpo ausente');
@@ -41,7 +44,7 @@ export async function readJson(request: Request, limit = 65536): Promise<unknown
   const bytes = new Uint8Array(size);
   let offset = 0;
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
-  return JSON.parse(new TextDecoder().decode(bytes));
+  return new TextDecoder().decode(bytes);
 }
 
 export const isUuid = (value: unknown): value is string => typeof value === 'string' &&
