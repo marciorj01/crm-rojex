@@ -4,7 +4,13 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { apiError, isUuid, readJson } from '@/lib/http';
 import { normalizeLead } from '@/lib/leads';
 
-export async function POST(req: Request) {
+export async function POST() {
+  // WEBHOOK DESATIVADO — integração com a Loft removida
+  return new Response(null, { status: 410 }); // 410 Gone
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function POST_ORIGINAL(req: Request) {
   try {
     const secret = process.env.LEAD_WEBHOOK_SECRET;
     if (!secret || secret.length < 32) return NextResponse.json({ error: 'Webhook não configurado.' }, { status: 503 });

@@ -6,12 +6,9 @@ import { buildFeed, collectPages, publicImageUrl, listingId, FEED_COLUMNS, XML_C
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-// FEED DESABILITADO — remova o bloco abaixo para reativar a integração com a Loft
+// FEED REMOVIDO — integração com a Loft desativada
 export async function GET() {
-  return new Response(
-    '<?xml version="1.0" encoding="UTF-8"?><ListingDataFeed xmlns="http://www.vrsync.com.br/2013/ListingDataFeed"><Listings/></ListingDataFeed>',
-    { status: 200, headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'no-store' } }
-  );
+  return new Response(null, { status: 410 }); // 410 Gone: feed permanentemente removido
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
